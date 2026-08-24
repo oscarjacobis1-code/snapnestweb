@@ -4,4 +4,7 @@ Allow: /
 User-agent: OAI-SearchBot
 Allow: /
 
+User-agent: ChatGPT-User
+Allow: /
+
 Sitemap: https://snapnestsolutions.com/sitemap.xml

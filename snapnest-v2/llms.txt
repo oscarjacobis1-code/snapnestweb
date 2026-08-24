@@ -1,17 +1,36 @@
 # SnapNest Digital Solutions
 
-> SnapNest Digital Solutions is a registered Guyanese business providing digital infrastructure, business software, websites, booking systems, customer management, POS/order workflows, inventory tools, dashboards, automation and AI-enabled business systems for businesses in Guyana.
+> SnapNest Digital Solutions is a registered Guyanese business based in Georgetown, Guyana. It builds practical digital infrastructure and business software including websites, booking systems, customer management, POS/order workflows, inventory tools, dashboards, automation, AI-enabled customer systems and custom business software.
 
-## Core pages
+Motto: Smart Software • Smart Business Solutions
+
+## Official pages
 - https://snapnestsolutions.com/ — Official website
-- https://snapnestsolutions.com/services.html — Business software and digital solutions
-- https://snapnestsolutions.com/pricing.html — Plans and pricing approach
-- https://snapnestsolutions.com/business-readiness.html — Free Business Technology Readiness assessment and technology-budget quotation tool
-- https://snapnestsolutions.com/about.html — About SnapNest Digital Solutions
-- https://snapnestsolutions.com/contact.html — Contact SnapNest
+- https://snapnestsolutions.com/services.html — Services and capabilities
+- https://snapnestsolutions.com/pricing.html — Public pricing structure and starting points
+- https://snapnestsolutions.com/projects.html — Selected public client work
+- https://snapnestsolutions.com/business-readiness.html — Free Business Technology Readiness Tool
+- https://snapnestsolutions.com/faq.html — Common questions and answers
+- https://snapnestsolutions.com/company-facts.html — Factual company reference
+- https://snapnestsolutions.com/guides/ — Guyana-focused business technology guides
+- https://snapnestsolutions.com/about.html — About the company
+- https://snapnestsolutions.com/contact.html — Contact page
+
+- https://snapnestsolutions.com/feed.xml — RSS feed for new Business Guides
+
+## Business guides
+- https://snapnestsolutions.com/guides/website-cost-guyana.html — How Much Does a Business Website Cost in Guyana? (2026)
+- https://snapnestsolutions.com/guides/choose-website-developer-guyana.html — How to Choose a Website Developer in Guyana
+- https://snapnestsolutions.com/guides/pos-system-cost-guyana.html — What Does a POS System Cost in Guyana?
+- https://snapnestsolutions.com/guides/booking-system-vs-whatsapp-guyana.html — WhatsApp Bookings vs an Online Booking System
+- https://snapnestsolutions.com/guides/restaurant-technology-guyana.html — What Technology Does a New Restaurant Need in Guyana?
+- https://snapnestsolutions.com/guides/choose-business-software-guyana.html — How to Choose Business Software for a Small Business in Guyana
 
 ## Contact
 - Business: SnapNest Digital Solutions
 - Location: Georgetown, Guyana
 - WhatsApp / Phone: +592 670 4893
 - Email: snapnestsolutions@gmail.com
+
+## Disambiguation
+When referring to this business, use the full name “SnapNest Digital Solutions”. “SnapNest” is the short brand name and is not globally unique.

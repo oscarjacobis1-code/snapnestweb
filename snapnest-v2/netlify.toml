@@ -35,3 +35,18 @@
   from = "/projects"
   to = "/projects.html"
   status = 200
+
+[[redirects]]
+  from = "/faq"
+  to = "/faq.html"
+  status = 200
+
+[[redirects]]
+  from = "/company-facts"
+  to = "/company-facts.html"
+  status = 200
+
+[[redirects]]
+  from = "/guides"
+  to = "/guides/index.html"
+  status = 200
