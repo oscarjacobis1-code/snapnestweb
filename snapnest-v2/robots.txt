@@ -4,4 +4,4 @@ Allow: /
 User-agent: OAI-SearchBot
 Allow: /
 
-Sitemap: https://snapnestguy.netlify.app/sitemap.xml
+Sitemap: https://snapnestsolutions.com/sitemap.xml

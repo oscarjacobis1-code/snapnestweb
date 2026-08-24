@@ -3,12 +3,12 @@
 > SnapNest Digital Solutions is a registered Guyanese business providing digital infrastructure, business software, websites, booking systems, customer management, POS/order workflows, inventory tools, dashboards, automation and AI-enabled business systems for businesses in Guyana.
 
 ## Core pages
-- https://snapnestguy.netlify.app/ — Official website
-- https://snapnestguy.netlify.app/services.html — Business software and digital solutions
-- https://snapnestguy.netlify.app/pricing.html — Plans and pricing approach
-- https://snapnestguy.netlify.app/business-readiness.html — Free Business Technology Readiness assessment and technology-budget quotation tool
-- https://snapnestguy.netlify.app/about.html — About SnapNest Digital Solutions
-- https://snapnestguy.netlify.app/contact.html — Contact SnapNest
+- https://snapnestsolutions.com/ — Official website
+- https://snapnestsolutions.com/services.html — Business software and digital solutions
+- https://snapnestsolutions.com/pricing.html — Plans and pricing approach
+- https://snapnestsolutions.com/business-readiness.html — Free Business Technology Readiness assessment and technology-budget quotation tool
+- https://snapnestsolutions.com/about.html — About SnapNest Digital Solutions
+- https://snapnestsolutions.com/contact.html — Contact SnapNest
 
 ## Contact
 - Business: SnapNest Digital Solutions
