@@ -101,7 +101,7 @@ function money(n){return 'GYD '+Math.round(n).toLocaleString('en-US')}
 function labelIndustry(v){return ({retail:'retail',food:'food / hospitality',salon:'salon / beauty',contractor:'contractor / trades',professional:'professional services',logistics:'logistics',agriculture:'agriculture / agro-processing',tourism:'tourism / accommodation',manufacturing:'manufacturing',property:'property / rental',creative:'creative / events',health:'health / wellness',education:'education / training',other:'mixed'})[v]||v}
 function rebuildFlow(){
  const branches=chooseBranches();
- flow=[...BASE.slice(0,7),...branches.map(id=>({id:'branch:'+id,branch:id,...BRANCHES[id]})),BASE[7],{id:'contact',contact:true,title:'Where should we attach this estimate?',sub:'This creates the reference on the demo result. Nothing is submitted anywhere from this standalone file.'}];
+ flow=[...BASE.slice(0,7),...branches.map(id=>({id:'branch:'+id,branch:id,...BRANCHES[id]})),BASE[7],{id:'contact',contact:true,title:'Where should we send this estimate?',sub:'Your assessment answers and contact details are sent to SnapNest only after you confirm below, so we can follow up about your estimate.'}];
 }
 function branchPriority(){
  const scores={stock:0,appointments:0,quotes:0,delivery:0,rentals:0,staff:0,payments:0};
@@ -138,20 +138,21 @@ function render(){
  document.getElementById('stepText').textContent=`Step ${index+1} of up to ${flow.length}`;
  let h=`<div class="q-top"><div class="q-step">Question ${index+1}</div><div class="q-progress"><span style="width:${pct}%"></span></div></div><h2>${s.title}</h2><p class="muted">${s.sub}</p>`;
  if(s.custom==='scale'){
-  h+=`<div class="choice-grid">${[['1','Owner only'],['2-5','2–5 people'],['6-15','6–15 people'],['16+','16+ people']].map(([v,l])=>`<button class="choice ${state.staff===v?'selected':''}" onclick="pickScale('${v}')">${l}</button>`).join('')}</div>
+  h+=`<div class="choice-grid">${[['1','Owner only'],['2-5','2–5 people'],['6-15','6–15 people'],['16+','16+ people']].map(([v,l])=>`<button type="button" class="choice ${state.staff===v?'selected':''}" aria-pressed="${state.staff===v}" onclick="pickScale('${v}')">${l}</button>`).join('')}</div>
       <div class="field"><label>Locations / operating sites</label><select id="locations" onchange="state.locations=this.value"><option value="1" ${state.locations==='1'?'selected':''}>1 location / site</option><option value="2-3" ${state.locations==='2-3'?'selected':''}>2–3 locations / sites</option><option value="4+" ${state.locations==='4+'?'selected':''}>4+ locations / sites</option></select></div>`;
  } else if(s.choices){
-  h+=`<div class="choice-grid">${s.choices.map(([v,l])=>`<button type="button" class="choice ${selectedFor(s,v)?'selected':''}" onclick="choose('${s.id}','${v}',${s.multi?1:0})">${l}</button>`).join('')}</div>`;
+  h+=`<div class="choice-grid">${s.choices.map(([v,l])=>`<button type="button" class="choice ${selectedFor(s,v)?'selected':''}" aria-pressed="${selectedFor(s,v)}" onclick="choose('${s.id}','${v}',${s.multi?1:0})">${l}</button>`).join('')}</div>`;
  }
  if(s.id==='selected')h+=`<div class="branch-note"><strong>Important:</strong><span>These are your preferences only. SnapNest’s recommendation is calculated separately from how the business operates.</span></div>`;
  if(s.id.startsWith('branch:'))h+=`<div class="branch-note"><strong>Why this question appeared:</strong><span>One of your earlier answers made this area important enough that a quick follow-up could materially change the estimate.</span></div>`;
  if(s.contact){
-  h+=`<div class="field" id="field_name"><label>Your name <span class="required-mark">Required</span></label><input id="r_name" value="${esc(state.name)}"><div class="field-error" id="err_name"></div></div>
-  <div class="field" id="field_business"><label>Business name <span class="required-mark">Required</span></label><input id="r_business" value="${esc(state.business)}"><div class="field-error" id="err_business"></div></div>
-  <div class="field" id="field_phone"><label>WhatsApp / phone <span class="required-mark">Required</span></label><input id="r_phone" value="${esc(state.phone)}" placeholder="+592"><div class="field-error" id="err_phone"></div></div>
-  <div class="field" id="field_email"><label>Email <span class="required-mark">Required</span></label><input id="r_email" type="email" value="${esc(state.email)}"><div class="field-error" id="err_email"></div></div>`;
+  h+=`<div class="field" id="field_name"><label for="r_name">Your name <span class="required-mark">Required</span></label><input id="r_name" autocomplete="name" value="${esc(state.name)}"><div class="field-error" id="err_name"></div></div>
+  <div class="field" id="field_business"><label for="r_business">Business name <span class="required-mark">Required</span></label><input id="r_business" autocomplete="organization" value="${esc(state.business)}"><div class="field-error" id="err_business"></div></div>
+  <div class="field" id="field_phone"><label for="r_phone">WhatsApp / phone <span class="required-mark">Required</span></label><input id="r_phone" autocomplete="tel" value="${esc(state.phone)}" placeholder="+592"><div class="field-error" id="err_phone"></div></div>
+  <div class="field" id="field_email"><label for="r_email">Email <span class="required-mark">Required</span></label><input id="r_email" type="email" autocomplete="email" value="${esc(state.email)}"><div class="field-error" id="err_email"></div></div>
+  <div class="consent-field" id="field_consent"><label><input id="r_consent" type="checkbox"> <span>I agree to send my contact details and assessment answers to SnapNest so the team can follow up about this estimate.</span></label><div class="field-error" id="err_consent"></div></div>`;
  }
- h+=`<div class="tool-actions"><button class="btn" onclick="back()" ${index===0?'disabled':''}>Back</button><button class="btn btn-primary" onclick="next()">${s.contact?'See My Technology Estimate':'Continue'}</button></div>`;
+ h+=`<div class="tool-actions"><button type="button" class="btn" onclick="back()" ${index===0?'disabled':''}>Back</button><button type="button" class="btn btn-primary" onclick="next()">${s.contact?'Submit & See My Technology Estimate':'Continue'}</button></div>`;
  box.innerHTML=h;
 }
 function choose(id,v,multi){
@@ -183,6 +184,7 @@ function next(auto=false){
   if(!state.phone)errs.push(['phone','A phone or WhatsApp number is required.']);
   if(!state.email)errs.push(['email','An email address is required.']);
   else if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(state.email))errs.push(['email','Enter a valid email address.']);
+  if(!document.getElementById('r_consent').checked)errs.push(['consent','Please confirm before sending your information to SnapNest.']);
   if(errs.length){errs.forEach(([id,m])=>{document.getElementById('field_'+id)?.classList.add('has-error');document.getElementById('err_'+id).textContent=m});document.getElementById('r_'+errs[0][0])?.focus();return}
   generate();return;
  }
@@ -372,7 +374,7 @@ function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 
 
 
-async function logAssessment(data){
+async function submitAssessment(data){
  if(location.protocol==='file:'||location.hostname.includes('sandbox'))return;
  const body=new URLSearchParams({'form-name':'business-readiness',...data});
  try{await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()})}
@@ -467,7 +469,8 @@ function generate(){
    <div style="display:none">${recommendedPrint}${selectedPrint}</div>
  </div></div>`;
  r.scrollIntoView({behavior:'smooth',block:'start'});
- logAssessment({
+ submitAssessment({
+  lead_consent:'yes',
   reference:ref,name:state.name,business_name:state.business,whatsapp:state.phone,email:state.email,
   business_type:state.industry,stage:state.stage,activities:[...state.activities].join(', '),
   customer_flow:state.customerFlow,biggest_problems:[...state.problems].join(', '),digital_setup:state.digital,

@@ -392,3 +392,5 @@ body{
   .tool-side > .card{padding:24px 22px!important}
   .question-card{padding:25px 20px!important}
 }
+
+.consent-field{margin:18px 0}.consent-field label{display:flex;align-items:flex-start;gap:9px;font-size:.82rem;line-height:1.45;cursor:pointer}.consent-field input{width:18px;height:18px;margin-top:2px;flex:0 0 auto}

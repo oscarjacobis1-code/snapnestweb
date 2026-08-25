@@ -14,6 +14,9 @@ body:has(#tool) .page-hero{background:linear-gradient(135deg,#f7f5f0,#fff);paddi
 
 .intro-links{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-top:18px}.intro-links .arrow-link{margin-top:0}
 
+/* Keep keyboard focus visible across navigation, buttons and forms. */
+:where(a,button,input,select,textarea):focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+
 /* Search/knowledge pages: extends the existing SnapNest visual language without changing core pages */
 .faq-list details{border-bottom:1px solid var(--line);padding:18px 0}.faq-list details:first-child{border-top:1px solid var(--line)}.faq-list summary{cursor:pointer;font-weight:750;color:var(--navy);font-size:1rem}.faq-list details p{color:var(--muted);font-size:.9rem;padding:10px 0 2px;max-width:760px}
 .guide-grid{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}.guide-card{padding:28px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}.guide-card>span{font-size:.62rem;letter-spacing:1.2px;color:var(--orange);font-weight:800;text-transform:uppercase}.guide-card h2{font-size:1.35rem;line-height:1.15;letter-spacing:-.6px;margin:9px 0}.guide-card p{color:var(--muted);font-size:.84rem;min-height:64px}
