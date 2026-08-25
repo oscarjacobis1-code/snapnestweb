@@ -1,17 +1,17 @@
 const MODULES={
- website:{name:'Website & Online Presence',setup:55000,monthly:15000},
- booking:{name:'Booking & Scheduling',setup:30000,monthly:5000},
- orders:{name:'Online Orders',setup:35000,monthly:6000},
- inventory:{name:'Inventory & Stock Tracking',setup:40000,monthly:6000},
- crm:{name:'Customer Records',setup:25000,monthly:4000},
- staff:{name:'Staff / Job Workflow',setup:30000,monthly:5000},
- pos:{name:'POS / Counter Sales',setup:65000,monthly:10000},
- invoicing:{name:'Invoices & Quotations',setup:28000,monthly:4000},
- payments:{name:'Digital Payments',setup:30000,monthly:5000},
- delivery:{name:'Delivery / Dispatch Workflow',setup:40000,monthly:6000},
- automation:{name:'Business Automation',setup:45000,monthly:7000},
- reporting:{name:'Owner Reports / Analytics',setup:25000,monthly:4000},
- ai:{name:'AI Customer Assistant',setup:35000,monthly:6000}
+ website:{name:'Website & Online Presence',setup:55000},
+ booking:{name:'Booking & Scheduling',setup:30000},
+ orders:{name:'Online Orders',setup:35000},
+ inventory:{name:'Inventory & Stock Tracking',setup:40000},
+ crm:{name:'Customer Records',setup:25000},
+ staff:{name:'Staff / Job Workflow',setup:30000},
+ pos:{name:'POS / Counter Sales',setup:65000},
+ invoicing:{name:'Invoices & Quotations',setup:28000},
+ payments:{name:'Digital Payments',setup:30000},
+ delivery:{name:'Delivery / Dispatch Workflow',setup:40000},
+ automation:{name:'Business Automation',setup:45000},
+ reporting:{name:'Owner Reports / Analytics',setup:25000},
+ ai:{name:'AI Customer Assistant',setup:35000}
 };
 
 const state={
@@ -28,7 +28,7 @@ const BASE=[
   ['property','Property / rental / real estate'],['creative','Creative / media / events'],['health','Health / wellness / care'],
   ['education','Education / training / tutoring'],['other','Other / mixed business']
  ]},
- {id:'stage',title:'Where is the business right now?',sub:'This helps us keep an estimate realistic for the stage you are actually at.',choices:[
+ {id:'stage',title:'Where is the business right now?',sub:'This helps us prioritise what is urgent now and what can reasonably wait. It does not change module prices.',choices:[
   ['planning','Planning / business plan'],['financing','Preparing a financing application'],['launch','Ready to launch'],['operating','Already operating']
  ]},
  {id:'activities',multi:true,title:'What does the business actually do?',sub:'Choose the real activities. Selecting an activity only opens a possibility — it does not automatically add software.',choices:[
@@ -101,6 +101,8 @@ function money(n){return 'GYD '+Math.round(n).toLocaleString('en-US')}
 function labelIndustry(v){return ({retail:'retail',food:'food / hospitality',salon:'salon / beauty',contractor:'contractor / trades',professional:'professional services',logistics:'logistics',agriculture:'agriculture / agro-processing',tourism:'tourism / accommodation',manufacturing:'manufacturing',property:'property / rental',creative:'creative / events',health:'health / wellness',education:'education / training',other:'mixed'})[v]||v}
 function rebuildFlow(){
  const branches=chooseBranches();
+ const active=new Set(branches);
+ Object.keys(state.branchAnswers).forEach(id=>{if(!active.has(id))delete state.branchAnswers[id]});
  flow=[...BASE.slice(0,7),...branches.map(id=>({id:'branch:'+id,branch:id,...BRANCHES[id]})),BASE[7],{id:'contact',contact:true,title:'Where should we send this estimate?',sub:'Your assessment answers and contact details are sent to SnapNest only after you confirm below, so we can follow up about your estimate.'}];
 }
 function branchPriority(){
@@ -139,21 +141,23 @@ function render(){
  let h=`<div class="q-top"><div class="q-step">Question ${index+1}</div><div class="q-progress"><span style="width:${pct}%"></span></div></div><h2>${s.title}</h2><p class="muted">${s.sub}</p>`;
  if(s.custom==='scale'){
   h+=`<div class="choice-grid">${[['1','Owner only'],['2-5','2–5 people'],['6-15','6–15 people'],['16+','16+ people']].map(([v,l])=>`<button type="button" class="choice ${state.staff===v?'selected':''}" aria-pressed="${state.staff===v}" onclick="pickScale('${v}')">${l}</button>`).join('')}</div>
-      <div class="field"><label>Locations / operating sites</label><select id="locations" onchange="state.locations=this.value"><option value="1" ${state.locations==='1'?'selected':''}>1 location / site</option><option value="2-3" ${state.locations==='2-3'?'selected':''}>2–3 locations / sites</option><option value="4+" ${state.locations==='4+'?'selected':''}>4+ locations / sites</option></select></div>`;
+      <div class="field"><label for="locations">Locations / operating sites</label><select id="locations" onchange="state.locations=this.value"><option value="1" ${state.locations==='1'?'selected':''}>1 location / site</option><option value="2-3" ${state.locations==='2-3'?'selected':''}>2–3 locations / sites</option><option value="4+" ${state.locations==='4+'?'selected':''}>4+ locations / sites</option></select></div>`;
  } else if(s.choices){
-  h+=`<div class="choice-grid">${s.choices.map(([v,l])=>`<button type="button" class="choice ${selectedFor(s,v)?'selected':''}" aria-pressed="${selectedFor(s,v)}" onclick="choose('${s.id}','${v}',${s.multi?1:0})">${l}</button>`).join('')}</div>`;
+  const groupAttrs=s.multi?'role="group"':'role="radiogroup"';
+  h+=`<div class="choice-grid" ${groupAttrs} aria-label="${esc(s.title)}">${s.choices.map(([v,l])=>`<button type="button" class="choice ${selectedFor(s,v)?'selected':''}" ${s.multi?`aria-pressed="${selectedFor(s,v)}"`:`role="radio" aria-checked="${selectedFor(s,v)}"`} onclick="choose('${s.id}','${v}',${s.multi?1:0})">${l}</button>`).join('')}</div>`;
  }
  if(s.id==='selected')h+=`<div class="branch-note"><strong>Important:</strong><span>These are your preferences only. SnapNest’s recommendation is calculated separately from how the business operates.</span></div>`;
  if(s.id.startsWith('branch:'))h+=`<div class="branch-note"><strong>Why this question appeared:</strong><span>One of your earlier answers made this area important enough that a quick follow-up could materially change the estimate.</span></div>`;
  if(s.contact){
-  h+=`<div class="field" id="field_name"><label for="r_name">Your name <span class="required-mark">Required</span></label><input id="r_name" autocomplete="name" value="${esc(state.name)}"><div class="field-error" id="err_name"></div></div>
-  <div class="field" id="field_business"><label for="r_business">Business name <span class="required-mark">Required</span></label><input id="r_business" autocomplete="organization" value="${esc(state.business)}"><div class="field-error" id="err_business"></div></div>
-  <div class="field" id="field_phone"><label for="r_phone">WhatsApp / phone <span class="required-mark">Required</span></label><input id="r_phone" autocomplete="tel" value="${esc(state.phone)}" placeholder="+592"><div class="field-error" id="err_phone"></div></div>
-  <div class="field" id="field_email"><label for="r_email">Email <span class="required-mark">Required</span></label><input id="r_email" type="email" autocomplete="email" value="${esc(state.email)}"><div class="field-error" id="err_email"></div></div>
-  <div class="consent-field" id="field_consent"><label><input id="r_consent" type="checkbox"> <span>I agree to send my contact details and assessment answers to SnapNest so the team can follow up about this estimate.</span></label><div class="field-error" id="err_consent"></div></div>`;
+  h+=`<div class="field" id="field_name"><label for="r_name">Your name <span class="required-mark">Required</span></label><input id="r_name" aria-describedby="err_name" autocomplete="name" value="${esc(state.name)}"><div class="field-error" id="err_name" aria-live="polite"></div></div>
+  <div class="field" id="field_business"><label for="r_business">Business name <span class="required-mark">Required</span></label><input id="r_business" aria-describedby="err_business" autocomplete="organization" value="${esc(state.business)}"><div class="field-error" id="err_business" aria-live="polite"></div></div>
+  <div class="field" id="field_phone"><label for="r_phone">WhatsApp / phone <span class="required-mark">Required</span></label><input id="r_phone" aria-describedby="err_phone" autocomplete="tel" value="${esc(state.phone)}" placeholder="+592"><div class="field-error" id="err_phone" aria-live="polite"></div></div>
+  <div class="field" id="field_email"><label for="r_email">Email <span class="required-mark">Required</span></label><input id="r_email" aria-describedby="err_email" type="email" autocomplete="email" value="${esc(state.email)}"><div class="field-error" id="err_email" aria-live="polite"></div></div>
+  <div class="consent-field" id="field_consent"><label><input id="r_consent" aria-describedby="err_consent" type="checkbox"> <span>I agree to send my contact details and assessment answers to SnapNest so the team can follow up about this estimate.</span></label><div class="field-error" id="err_consent" aria-live="polite"></div></div>`;
  }
  h+=`<div class="tool-actions"><button type="button" class="btn" onclick="back()" ${index===0?'disabled':''}>Back</button><button type="button" class="btn btn-primary" onclick="next()">${s.contact?'Submit & See My Technology Estimate':'Continue'}</button></div>`;
  box.innerHTML=h;
+ const heading=box.querySelector('h2');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true})}
 }
 function choose(id,v,multi){
  const s=getStep();
@@ -205,7 +209,8 @@ function next(auto=false){
 function add(E,id,points,reason){E[id]??=[];E[id].push({points,reason})}
 function capabilityEvidence(){
  const E={};Object.keys(MODULES).forEach(k=>E[k]=[]);
- const A=state.activities,P=state.problems,B=state.branchAnswers;
+ const A=state.activities,P=state.problems,active=new Set(chooseBranches());
+ const B=Object.fromEntries(Object.entries(state.branchAnswers).filter(([id])=>active.has(id)));
 
  // light industry context — never enough on its own to force a recommendation
  const priors={
@@ -307,30 +312,58 @@ function capabilityEvidence(){
 }
 function scoreRows(){
  const E=capabilityEvidence();
+ const branchModules={stock:['inventory'],appointments:['booking'],quotes:['invoicing'],delivery:['delivery'],rentals:['crm','payments'],staff:['staff'],payments:['payments']};
+ const priorities=branchPriority(),asked=new Set(chooseBranches()),unresolved=new Set();
+ Object.entries(priorities).filter(([,value])=>value>=5).forEach(([branch])=>{
+  if(!asked.has(branch)||!state.branchAnswers[branch])branchModules[branch].forEach(id=>unresolved.add(id));
+ });
  return Object.entries(E).map(([id,ev])=>{
   const score=ev.reduce((a,x)=>a+x.points,0);
   const positive=ev.filter(x=>x.points>0).sort((a,b)=>b.points-a.points);
   const negative=ev.filter(x=>x.points<0).sort((a,b)=>a.points-b.points);
   let bucket='wait';
   if(score>=7 && positive.some(x=>x.points>=4))bucket='now';
+  // Website evidence is cumulative: several independent signals can establish need.
+  if(id==='website'&&score>=7&&positive.length>=3)bucket='now';
   if(score<=0||negative.some(x=>x.points<=-8))bucket='skip';
   // Guardrails against over-selling enhancements.
   if(['ai','automation','reporting'].includes(id)&&bucket==='now'&&score<10)bucket='wait';
+  // A material unanswered follow-up can reject this recommendation, so it cannot be presented as certain.
+  if(bucket==='now'&&unresolved.has(id))bucket='wait';
+  // Stage affects urgency only. Planning/financing keep non-launch-critical capabilities for later.
+  const launchCritical=(state.customerFlow==='appointments'&&id==='booking')||(state.customerFlow==='orders'&&id==='orders')||(state.customerFlow==='quotes'&&id==='invoicing')||(state.customerFlow==='counter'&&id==='pos')||(state.customerFlow==='project'&&id==='staff')||(state.problems.has('customers')&&id==='website')||(state.problems.has('missed')&&id==='crm');
+  if(bucket==='now'&&['planning','financing'].includes(state.stage)&&!launchCritical)bucket='wait';
   return {id,score,bucket,evidence:ev,positive,negative};
  }).sort((a,b)=>b.score-a.score);
 }
-function integratedMonthly(items){
- if(!items.length)return 0;
- if(items.length===1)return MODULES[items[0].id].monthly;
- let m=12000;
- if(items.length>=3||state.staff==='6-15'||state.locations==='2-3')m=17000;
- if(items.length>=5||state.staff==='16+'||state.locations==='4+')m=25000;
- return m;
+function requiresManualScope(items){
+ const ids=new Set(items.map(x=>x.id));
+ const operational=['inventory','staff','pos','delivery','automation','reporting'].filter(id=>ids.has(id)).length;
+ return state.locations==='4+'||
+  (state.locations==='2-3'&&items.length>=3&&operational>=2)||
+  (state.branchAnswers.staff==='stages'&&items.length>=3)||
+  (state.branchAnswers.delivery==='complex'&&items.length>=3)||
+  (state.staff==='16+'&&items.length>=4);
+}
+const RECURRING_BANDS={low:10000,standard:15000,high:20000};
+function recurringSupport(items){
+ if(!items.length)return {band:'none',monthly:0,preliminary:true,drivers:[]};
+ const drivers=new Set();
+ if(['appointments','orders','counter','project'].includes(state.customerFlow))drivers.add('business-critical customer or job workflow');
+ if(state.locations==='2-3'||state.locations==='4+')drivers.add('multi-location data and operations');
+ if((state.staff!=='1'&&state.activities.has('jobs'))||['assigned','stages'].includes(state.branchAnswers.staff))drivers.add('shared staff workflow and permissions');
+ if(state.branchAnswers.stock==='complex')drivers.add('operationally critical stock handling');
+ if(['own','complex'].includes(state.branchAnswers.delivery))drivers.add('managed fulfilment or delivery');
+ if(['remote','deposit','recurring'].includes(state.branchAnswers.payments))drivers.add('ongoing payment-service dependency');
+ if(items.some(x=>x.id==='ai'))drivers.add('third-party AI service usage');
+ const manualScope=requiresManualScope(items);
+ const band=manualScope?'manual':drivers.size>=2?'high':drivers.size===1?'standard':'low';
+ return {band,monthly:manualScope?RECURRING_BANDS.high:RECURRING_BANDS[band],preliminary:true,drivers:[...drivers]};
 }
 function estimate(items){
  const setup=items.reduce((a,x)=>a+MODULES[x.id].setup,0);
- const monthly=integratedMonthly(items);
- return {setup,monthly,firstYear:setup+monthly*12};
+ const recurring=recurringSupport(items);
+ return {setup,monthly:recurring.monthly,firstYear:setup+recurring.monthly*12,recurringBand:recurring.band,recurringDrivers:recurring.drivers,guardrailApplied:false,manualScope:requiresManualScope(items)};
 }
 function shortReason(row){
  const p=row.positive.slice(0,2).map(x=>x.reason);
@@ -357,6 +390,9 @@ function futureReason(row){
  };
  return map[row.id] || 'Could be a useful addition later if demand or operational complexity grows.';
 }
+function scopeNotice(est){
+ return est.manualScope?'<div class="manual-scope"><strong>Custom scope – final quotation required.</strong><p>This preliminary estimate involves operational complexity that must be confirmed through a detailed scope review before final pricing.</p></div>':'';
+}
 function overallWhy(now){
  const reasons=[];
  if(state.customerFlow==='appointments')reasons.push('customers mainly book appointments');
@@ -374,11 +410,40 @@ function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 
 
 
+let submissionPromise=null,lastSubmission=null,generating=false;
 async function submitAssessment(data){
- if(location.protocol==='file:'||location.hostname.includes('sandbox'))return;
+ if(location.protocol==='file:'||location.hostname.includes('sandbox'))return {ok:true,status:200,local:true};
+ if(submissionPromise)return submissionPromise;
  const body=new URLSearchParams({'form-name':'business-readiness',...data});
- try{await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()})}
- catch(e){console.warn('Assessment logging failed',e)}
+ submissionPromise=(async()=>{
+  try{
+   const response=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});
+   return response.ok?{ok:true,status:response.status}:{ok:false,retryable:true,status:response.status};
+  }catch(e){console.warn('Assessment logging failed',e);return {ok:false,retryable:true,status:0}}
+  finally{submissionPromise=null}
+ })();
+ return submissionPromise;
+}
+
+function setSubmissionStatus(result){
+ const box=document.getElementById('submissionStatus');if(!box)return;
+ box.className='submission-status '+(result.ok?'sent':'failed');
+ box.setAttribute('role',result.ok?'status':'alert');
+ box.innerHTML=result.ok?'Your information was sent to SnapNest successfully.':`We could not send your information. Your estimate is still available below. <button type="button" class="btn retry-submit" onclick="retrySubmission()">Try sending again</button>`;
+}
+async function retrySubmission(){
+ if(!lastSubmission)return;
+ const button=document.querySelector('.retry-submit');if(button){button.disabled=true;button.textContent='Sending…'}
+ setSubmissionStatus(await submitAssessment(lastSubmission));
+}
+
+function localDateParts(now=new Date()){
+ return {year:now.getFullYear(),month:String(now.getMonth()+1).padStart(2,'0'),day:String(now.getDate()).padStart(2,'0'),display:now.toLocaleDateString('en-GB')};
+}
+function toggleComparison(button){
+ const panel=document.getElementById(button.getAttribute('aria-controls'));
+ const open=button.getAttribute('aria-expanded')!=='true';
+ button.setAttribute('aria-expanded',String(open));panel.classList.toggle('open',open);
 }
 
 function printEstimate(mode){
@@ -387,17 +452,20 @@ function printEstimate(mode){
  setTimeout(()=>{delete document.body.dataset.printMode},900);
 }
 
-function generate(){
+async function generate(){
+ if(generating)return;
+ generating=true;
  const rows=scoreRows();
- const now=rows.filter(x=>x.bucket==='now').slice(0,6);
- const wait=rows.filter(x=>x.bucket==='wait'&&x.score>=2).slice(0,4);
+ const now=rows.filter(x=>x.bucket==='now');
+ const wait=rows.filter(x=>x.bucket==='wait'&&x.score>=2);
  const est=estimate(now);
  const selected=[...state.selected].filter(x=>x!=='unsure').map(id=>({id}));
  const selectedEst=estimate(selected);
  const selectedIds=new Set(selected.map(x=>x.id)),nowIds=new Set(now.map(x=>x.id));
  const missing=now.filter(x=>!selectedIds.has(x.id));
  const extra=selected.filter(x=>!nowIds.has(x.id));
- const ref='SN-BR-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+Math.floor(1000+Math.random()*9000);
+ const date=localDateParts();
+ const ref=`SN-BR-${date.year}${date.month}${date.day}-${Math.floor(1000+Math.random()*9000)}`;
  const itemRows=(items,waitMode=false)=>items.length?`<div class="simple-list">${items.map(x=>{
    const m=MODULES[x.id];
    return `<div class="simple-item"><div><strong>${m.name}</strong><p>${waitMode?futureReason(x):shortReason(x)}</p></div><div class="simple-price">${money(m.setup)}<small>${waitMode?'possible future setup':'one-time setup'}</small></div></div>`;
@@ -410,9 +478,10 @@ function generate(){
    <div class="result-section"><h3>Estimated technology budget</h3>
     <div class="budget-grid">
      <div class="budget-box"><span>One-time setup</span><strong>${money(est.setup)}</strong></div>
-     <div class="budget-box"><span>Hosting, maintenance & support</span><strong>${money(est.monthly)}/month</strong></div>
+     <div class="budget-box"><span>Preliminary hosting, maintenance & support</span><strong>${money(est.monthly)}/month</strong></div>
      <div class="budget-box"><span>Estimated first year</span><strong>${money(est.firstYear)}</strong></div>
     </div>
+    ${scopeNotice(est)}
     <div class="reason-box" style="margin-top:14px"><strong>Why this setup?</strong><br>${esc(overallWhy(now))}</div>
    </div>
    ${baseDisclaimer}
@@ -425,9 +494,10 @@ function generate(){
    <div class="result-section"><h3>Estimated technology budget</h3>
     <div class="budget-grid">
      <div class="budget-box"><span>One-time setup</span><strong>${money(selectedEst.setup)}</strong></div>
-     <div class="budget-box"><span>Hosting, maintenance & support</span><strong>${money(selectedEst.monthly)}/month</strong></div>
+     <div class="budget-box"><span>Preliminary hosting, maintenance & support</span><strong>${money(selectedEst.monthly)}/month</strong></div>
      <div class="budget-box"><span>Estimated first year</span><strong>${money(selectedEst.firstYear)}</strong></div>
     </div>
+    ${scopeNotice(selectedEst)}
     ${extra.length?`<div class="soft-warning"><strong>Note:</strong> Your selected configuration includes additional systems beyond SnapNest’s current recommendation. They remain included because you selected them.</div>`:''}
    </div>
    ${baseDisclaimer}
@@ -436,7 +506,8 @@ function generate(){
  document.getElementById('tool').style.display='none';
  const r=document.getElementById('result');r.classList.add('show');
  r.innerHTML=`<div class="result-shell"><div class="quote">
-   <div class="quote-head"><div><span class="badge-green">SnapNest Business Technology Estimate</span><h2 style="font-family:Fraunces,serif;margin-top:10px">${esc(state.business)}</h2><p class="muted">Prepared by SnapNest Digital Solutions · Demo logic only</p></div><div><div class="quote-ref">${ref}</div><div class="muted">${new Date().toLocaleDateString('en-GB')}</div></div></div>
+   <div class="quote-head"><div><span class="badge-green">SnapNest Business Technology Estimate</span><h2 style="font-family:Fraunces,serif;margin-top:10px">${esc(state.business)}</h2><p class="muted">Prepared by SnapNest Digital Solutions · Preliminary planning estimate</p></div><div><div class="quote-ref">${ref}</div><div class="muted">${date.display}</div></div></div>
+   <div id="submissionStatus" class="submission-status sending" role="status" aria-live="polite">Sending your information to SnapNest…</div>
 
    <div class="print-recommended">
     <div class="result-section"><h3>What we think you need now</h3><p class="muted">The short list we would actually budget for at this stage.</p>${itemRows(now)}</div>
@@ -444,23 +515,24 @@ function generate(){
     <div class="result-section"><h3>Your estimated technology budget</h3>
      <div class="budget-grid">
       <div class="budget-box"><span>One-time setup</span><strong>${money(est.setup)}</strong></div>
-      <div class="budget-box"><span>Hosting, maintenance & support</span><strong>${money(est.monthly)}/month</strong></div>
+      <div class="budget-box"><span>Preliminary hosting, maintenance & support</span><strong>${money(est.monthly)}/month</strong></div>
       <div class="budget-box"><span>Estimated first year</span><strong>${money(est.firstYear)}</strong></div>
      </div>
+     ${scopeNotice(est)}
      <div class="reason-box" style="margin-top:14px"><strong>Why this setup?</strong><br>${esc(overallWhy(now))}</div>
     </div>
    </div>
 
    ${selected.length?`<div class="result-section no-print"><h3>Your choices vs our estimate</h3><p class="muted">Kept out of the way unless you want to compare them.</p>
-      <button class="btn compare-toggle" onclick="document.getElementById('comparePanel').classList.toggle('open')">Compare with what I selected</button>
+      <button class="btn compare-toggle" aria-expanded="false" aria-controls="comparePanel" onclick="toggleComparison(this)">Compare with what I selected</button>
       <div class="compare-panel" id="comparePanel"><div class="compare-grid"><div class="compare-col"><h4>You selected</h4><ul>${selected.map(x=>`<li>${MODULES[x.id].name}</li>`).join('')}</ul></div><div class="compare-col"><h4>SnapNest thinks you need now</h4><ul>${now.map(x=>`<li>${MODULES[x.id].name}</li>`).join('')}</ul></div></div>
       ${(missing.length||extra.length)?`<div class="soft-warning"><strong>Where we differ:</strong> ${missing.length?`We think ${missing.map(x=>MODULES[x.id].name).join(', ')} may be missing. `:''}${extra.length?`We would not put ${extra.map(x=>MODULES[x.id].name).join(', ')} into the launch estimate yet based on these answers.`:''}</div>`:'<div class="soft-warning"><strong>Good match:</strong> your choices line up closely with the estimate.</div>'}</div></div>`:''}
 
    <div class="no-print">
-    <div class="result-section"><h3>Download an estimate</h3><p class="muted">Choose the version you actually want to use.</p>
+    <div class="result-section"><h3>Print or save an estimate as PDF</h3><p class="muted">Choose the version you want, then use your browser’s Print or Save as PDF option.</p>
       <div class="download-grid">
-       <button class="btn btn-primary download-option" onclick="printEstimate('recommended')"><strong>Download SnapNest’s recommended estimate</strong><small>Uses the setup SnapNest recommends from the assessment.</small></button>
-       ${selected.length?`<button class="btn download-option" onclick="printEstimate('selected')"><strong>Download an estimate based on my selections</strong><small>Uses the systems exactly as you selected them.</small></button>`:''}
+       <button class="btn btn-primary download-option" onclick="printEstimate('recommended')"><strong>Print / Save SnapNest’s recommended estimate</strong><small>Uses the setup SnapNest recommends from the assessment.</small></button>
+       ${selected.length?`<button class="btn download-option" onclick="printEstimate('selected')"><strong>Print / Save an estimate based on my selections</strong><small>Uses the systems exactly as you selected them.</small></button>`:''}
       </div>
     </div>
     <div class="actions"><button class="btn" onclick="location.reload()">Test Another Business</button></div>
@@ -469,7 +541,7 @@ function generate(){
    <div style="display:none">${recommendedPrint}${selectedPrint}</div>
  </div></div>`;
  r.scrollIntoView({behavior:'smooth',block:'start'});
- submitAssessment({
+ lastSubmission={
   lead_consent:'yes',
   reference:ref,name:state.name,business_name:state.business,whatsapp:state.phone,email:state.email,
   business_type:state.industry,stage:state.stage,activities:[...state.activities].join(', '),
@@ -479,7 +551,8 @@ function generate(){
   snapnest_now_modules:now.map(x=>x.id).join(', '),snapnest_future_modules:wait.map(x=>x.id).join(', '),
   selected_setup_estimate:selectedEst.setup,selected_monthly_estimate:selectedEst.monthly,selected_year_one_estimate:selectedEst.firstYear,
   snapnest_setup_estimate:est.setup,snapnest_monthly_estimate:est.monthly,snapnest_year_one_estimate:est.firstYear
- });
+ };
+ setSubmissionStatus(await submitAssessment(lastSubmission));
 }
 state.locations='1';
 rebuildFlow();render();
