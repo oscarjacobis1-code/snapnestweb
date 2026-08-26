@@ -21,7 +21,7 @@ const state={
 };
 
 const BASE=[
- {id:'industry',title:'What kind of business is this mainly?',sub:'Choose the closest main type. The activities you select next tell us what else the business does.',choices:[
+ {id:'industry',title:'Which option best describes your business?',sub:'Start with the closest main type. You can describe everything the business actually does in the next question.',choices:[
   ['retail','Shop / retail / wholesale'],['food','Restaurant / café / catering'],['salon','Salon / barber / beauty'],
   ['contractor','Construction / contractor / trades'],['professional','Professional services'],['logistics','Transport / courier / logistics'],
   ['agriculture','Agriculture / farming / agro-processing'],['tourism','Accommodation / tourism / guesthouse'],['manufacturing','Manufacturing / production'],
@@ -138,13 +138,13 @@ function render(){
  const pct=Math.round((index+1)/flow.length*100);
  document.getElementById('bar').style.width=pct+'%';
  document.getElementById('stepText').textContent=`Step ${index+1} of up to ${flow.length}`;
- let h=`<div class="q-top"><div class="q-step">Question ${index+1}</div><div class="q-progress"><span style="width:${pct}%"></span></div></div><h2>${s.title}</h2><p class="muted">${s.sub}</p>`;
+ let h=`<div class="q-top"><div class="q-step">Question ${index+1} of up to ${flow.length}</div><div aria-hidden="true" class="q-progress"><span style="width:${pct}%"></span></div></div><h2 id="questionTitle" tabindex="-1">${s.title}</h2><p class="muted" id="questionHelp">${s.sub}</p>`;
  if(s.custom==='scale'){
   h+=`<div class="choice-grid">${[['1','Owner only'],['2-5','2–5 people'],['6-15','6–15 people'],['16+','16+ people']].map(([v,l])=>`<button type="button" class="choice ${state.staff===v?'selected':''}" aria-pressed="${state.staff===v}" onclick="pickScale('${v}')">${l}</button>`).join('')}</div>
       <div class="field"><label for="locations">Locations / operating sites</label><select id="locations" onchange="state.locations=this.value"><option value="1" ${state.locations==='1'?'selected':''}>1 location / site</option><option value="2-3" ${state.locations==='2-3'?'selected':''}>2–3 locations / sites</option><option value="4+" ${state.locations==='4+'?'selected':''}>4+ locations / sites</option></select></div>`;
  } else if(s.choices){
-  const groupAttrs=s.multi?'role="group"':'role="radiogroup"';
-  h+=`<div class="choice-grid" ${groupAttrs} aria-label="${esc(s.title)}">${s.choices.map(([v,l])=>`<button type="button" class="choice ${selectedFor(s,v)?'selected':''}" ${s.multi?`aria-pressed="${selectedFor(s,v)}"`:`role="radio" aria-checked="${selectedFor(s,v)}"`} onclick="choose('${s.id}','${v}',${s.multi?1:0})">${l}</button>`).join('')}</div>`;
+  const groupAttrs=s.multi?'role="group"':'role="radiogroup" onkeydown="moveRadio(event)"';
+  h+=`<div class="choice-grid" ${groupAttrs} aria-labelledby="questionTitle" aria-describedby="questionHelp">${s.choices.map(([v,l],choiceIndex)=>`<button type="button" class="choice ${selectedFor(s,v)?'selected':''}" ${s.multi?`aria-pressed="${selectedFor(s,v)}"`:`role="radio" aria-checked="${selectedFor(s,v)}" tabindex="${selectedFor(s,v)||(!s.choices.some(([value])=>selectedFor(s,value))&&choiceIndex===0)?'0':'-1'}"`} onclick="choose('${s.id}','${v}',${s.multi?1:0})">${l}</button>`).join('')}</div>`;
  }
  if(s.id==='selected')h+=`<div class="branch-note"><strong>Important:</strong><span>These are your preferences only. SnapNest’s recommendation is calculated separately from how the business operates.</span></div>`;
  if(s.id.startsWith('branch:'))h+=`<div class="branch-note"><strong>Why this question appeared:</strong><span>One of your earlier answers made this area important enough that a quick follow-up could materially change the estimate.</span></div>`;
@@ -157,7 +157,14 @@ function render(){
  }
  h+=`<div class="tool-actions"><button type="button" class="btn" onclick="back()" ${index===0?'disabled':''}>Back</button><button type="button" class="btn btn-primary" onclick="next()">${s.contact?'Submit & See My Technology Estimate':'Continue'}</button></div>`;
  box.innerHTML=h;
- const heading=box.querySelector('h2');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true})}
+ const heading=box.querySelector('h2');if(heading)heading.focus({preventScroll:true})
+}
+function moveRadio(event){
+ if(!['ArrowDown','ArrowRight','ArrowUp','ArrowLeft'].includes(event.key))return;
+ const radios=[...event.currentTarget.querySelectorAll('[role="radio"]')];if(!radios.length)return;
+ event.preventDefault();const current=Math.max(0,radios.indexOf(document.activeElement));
+ const direction=['ArrowDown','ArrowRight'].includes(event.key)?1:-1;
+ radios[(current+direction+radios.length)%radios.length].focus();
 }
 function choose(id,v,multi){
  const s=getStep();
@@ -446,10 +453,93 @@ function toggleComparison(button){
  button.setAttribute('aria-expanded',String(open));panel.classList.toggle('open',open);
 }
 
-function printEstimate(mode){
- document.body.dataset.printMode=mode;
- setTimeout(()=>window.print(),60);
- setTimeout(()=>{delete document.body.dataset.printMode},900);
+let lastReport=null;
+function pdfSafe(value){return String(value??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'-')}
+function pdfEscape(value){return pdfSafe(value).replace(/([\\()])/g,'\\$1')}
+function pdfWrap(text,width,size=10){
+ const words=pdfSafe(text).split(/\s+/).filter(Boolean),lines=[];let line='';
+ const max=Math.max(8,Math.floor(width/(size*.52)));
+ words.forEach(word=>{const next=line?line+' '+word:word;if(next.length>max&&line){lines.push(line);line=word}else line=next});
+ if(line)lines.push(line);return lines;
+}
+function pdfText(commands,text,x,y,size=10,bold=false,color='0.12 0.15 0.18'){
+ commands.push(`BT /F${bold?2:1} ${size} Tf ${color} rg 1 0 0 1 ${x} ${y} Tm (${pdfEscape(text)}) Tj ET`);
+}
+function pdfRect(commands,x,y,w,h,color,stroke=''){
+ commands.push(`${color} rg ${x} ${y} ${w} ${h} re f`);if(stroke)commands.push(`${stroke} RG .8 w ${x} ${y} ${w} ${h} re S`);
+}
+function pdfLine(commands,x1,y1,x2,y2,color='0.88 0.89 0.90'){
+ commands.push(`${color} RG .8 w ${x1} ${y1} m ${x2} ${y2} l S`);
+}
+function stageLabel(value){return ({planning:'Planning',financing:'Preparing for financing',launch:'Ready to launch',operating:'Already operating'})[value]||value||'Not specified'}
+function flowLabel(value){return ({appointments:'Appointments',orders:'Orders',quotes:'Quotations',counter:'Walk-in / counter sales',project:'Jobs / projects',mixed:'Mixed workflow'})[value]||value||'Not specified'}
+function teamLabel(value){return ({'1':'Owner only','2-5':'2-5 people','6-15':'6-15 people','16+':'16+ people'})[value]||value||'Not specified'}
+function locationLabel(value){return ({'1':'1 site','2-3':'2-3 sites','4+':'4+ sites'})[value]||value||'Not specified'}
+function buildBrandedPdf(report,mode='recommended'){
+ const pages=[];let commands=[],y=0,pageNumber=0;
+ const margin=40,contentWidth=515,navy='0.07 0.25 0.37',navyDeep='0.04 0.16 0.23',orange='0.94 0.31 0',muted='0.39 0.44 0.48',line='0.87 0.89 0.90',soft='0.96 0.97 0.97',warm='1 0.97 0.94';
+ const items=mode==='selected'?report.selected:report.now,est=mode==='selected'?report.selectedEst:report.est;
+ function startPage(first=false){
+  if(commands.length)pages.push(commands.join('\n'));commands=[];pageNumber++;
+  pdfRect(commands,0,0,595,842,'1 1 1');
+  pdfRect(commands,0,first?710:766,595,first?132:76,navyDeep);
+  pdfRect(commands,40,first?786:790,29,29,orange);pdfText(commands,'SN',46,first?796:800,10,true,'1 1 1');
+  pdfText(commands,'SnapNest',79,first?802:806,16,true,'1 1 1');pdfText(commands,'DIGITAL SOLUTIONS',79,first?790:794,6.5,true,'0.96 0.58 0.35');
+  if(first){
+   pdfText(commands,mode==='selected'?'CUSTOMER-SELECTED TECHNOLOGY ESTIMATE':'BUSINESS TECHNOLOGY ESTIMATE',40,756,8,true,'0.96 0.58 0.35');
+   pdfText(commands,report.business,40,729,22,true,'1 1 1');
+   pdfText(commands,`Reference  ${report.ref}`,402,756,7.5,true,'0.78 0.84 0.87');pdfText(commands,`Prepared  ${report.date}`,402,742,7.5,false,'0.78 0.84 0.87');
+   y=684;
+  }else{pdfText(commands,'Business Technology Estimate - continued',350,798,7.5,false,'0.78 0.84 0.87');y=742}
+  pdfText(commands,`PRELIMINARY ESTIMATE  |  PAGE ${pageNumber}`,40,20,6.8,true,muted);pdfText(commands,report.ref,465,20,6.8,false,muted);
+ }
+ function ensure(height){if(y-height<30)startPage(false)}
+ function sectionHeading(title,subtitle){
+  ensure(subtitle?45:31);pdfText(commands,title.toUpperCase(),margin,y,8,true,orange);y-=13;
+  if(subtitle){pdfText(commands,subtitle,margin,y,8.2,false,muted);y-=20}else y-=13;
+ }
+ function recommendationList(list,later=false){
+  if(!list.length){ensure(42);pdfRect(commands,margin,y-34,contentWidth,38,soft,line);pdfText(commands,later?'Nothing important was identified for later at this stage.':'No paid technology was strongly justified from these answers.',margin+12,y-18,8.5,false,muted);y-=48;return}
+  list.forEach(item=>{
+   const module=MODULES[item.id],reason=later?futureReason(item):shortReason(item),reasonLines=pdfWrap(reason,350,8);
+   const h=Math.max(44,28+reasonLines.length*9);ensure(h+6);
+   pdfRect(commands,margin,y-h+5,contentWidth,h,soft,line);pdfRect(commands,margin,y-h+5,4,h,later?'0.54 0.62 0.67':orange);
+   pdfText(commands,module.name,margin+15,y-14,10.2,true,navyDeep);
+   reasonLines.slice(0,3).forEach((text,i)=>pdfText(commands,text,margin+15,y-28-i*9,7.7,false,muted));
+   pdfText(commands,money(module.setup),448,y-14,9.2,true,navy);pdfText(commands,later?'POSSIBLE FUTURE SETUP':'ONE-TIME SETUP',448,y-26,5.8,true,muted);
+   y-=h+6;
+  });
+ }
+ startPage(true);
+ pdfRect(commands,margin,y-68,contentWidth,72,'0.98 0.98 0.97',line);pdfText(commands,'BUSINESS PROFILE',margin+13,y-16,7,true,navy);
+ const profile=[['TYPE',labelIndustry(report.industry)],['STAGE',stageLabel(report.stage)],['TEAM',teamLabel(report.staff)],['LOCATIONS',locationLabel(report.locations)],['MAIN FLOW',flowLabel(report.customerFlow)]];
+ profile.forEach(([label,value],i)=>{const x=margin+13+i*100;pdfText(commands,label,x,y-35,5.8,true,muted);pdfWrap(value,88,7.6).slice(0,2).forEach((text,j)=>pdfText(commands,text,x,y-48-j*9,7.6,j===0,navyDeep));if(i<4)pdfLine(commands,x+88,y-57,x+88,y-27,line)});y-=89;
+ sectionHeading(mode==='selected'?'Customer-selected scope':'Need now',mode==='selected'?'The capabilities selected during the assessment.':'The capabilities we would budget for at this stage.');recommendationList(items,false);
+ sectionHeading('Useful later','Capabilities that may become worthwhile as demand or operational complexity grows.');recommendationList(report.wait||[],true);
+ ensure(142);sectionHeading('Preliminary technology budget','Setup and ongoing operating support are shown separately.');
+ const budgets=[['ONE-TIME SETUP',money(est.setup)],['HOSTING, MAINTENANCE & SUPPORT',`${money(est.monthly)}/month`],['ESTIMATED FIRST YEAR',money(est.firstYear)]];
+ budgets.forEach(([label,value],i)=>{const x=margin+i*174;pdfRect(commands,x,y-68,165,68,i===2?navyDeep:warm,i===2?'':line);pdfText(commands,label,x+11,y-18,5.8,true,i===2?'0.78 0.84 0.87':muted);pdfWrap(value,143,13).slice(0,2).forEach((text,j)=>pdfText(commands,text,x+11,y-39-j*14,13,true,i===2?'1 1 1':navyDeep))});y-=82;
+ if(est.manualScope){ensure(58);pdfRect(commands,margin,y-47,contentWidth,51,'1 0.96 0.82','0.94 0.69 0.22');pdfText(commands,'CUSTOM SCOPE - FINAL QUOTATION REQUIRED',margin+13,y-17,8.5,true,'0.38 0.27 0.05');pdfText(commands,'Operational complexity must be confirmed through a detailed scope review before final pricing.',margin+13,y-32,7.7,false,'0.38 0.27 0.05');y-=64}
+ ensure(65);pdfRect(commands,margin,y-54,contentWidth,58,'0.96 0.97 0.97',line);pdfText(commands,'PLANNING NOTICE',margin+13,y-15,7.2,true,navy);
+ const disclaimer='This is a preliminary technology planning estimate, not a final quotation, contract, lender recommendation, financing approval, or guarantee of final project cost. Final pricing may change after SnapNest confirms requirements, integrations, hardware, third-party services, and any custom development required.';
+ pdfWrap(disclaimer,contentWidth-26,7).slice(0,4).forEach((text,i)=>pdfText(commands,text,margin+13,y-28-i*9,7,false,muted));y-=65;
+ pages.push(commands.join('\n'));
+ const objects=['','','','',''];const pageIds=[],catalogId=1,pagesId=2,regularFontId=3,boldFontId=4;
+ objects[regularFontId]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';objects[boldFontId]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
+ pages.forEach(content=>{const contentId=objects.length;objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);const pageId=objects.length;objects.push(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${regularFontId} 0 R /F2 ${boldFontId} 0 R >> >> /Contents ${contentId} 0 R >>`);pageIds.push(pageId)});
+ objects[pagesId]=`<< /Type /Pages /Kids [${pageIds.map(id=>id+' 0 R').join(' ')}] /Count ${pageIds.length} >>`;objects[catalogId]=`<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
+ let pdf='%PDF-1.4\n';const offsets=[0];for(let id=1;id<objects.length;id++){offsets[id]=pdf.length;pdf+=`${id} 0 obj\n${objects[id]}\nendobj\n`}
+ const xref=pdf.length;pdf+=`xref\n0 ${objects.length}\n0000000000 65535 f \n`;for(let id=1;id<objects.length;id++)pdf+=String(offsets[id]).padStart(10,'0')+' 00000 n \n';
+ pdf+=`trailer\n<< /Size ${objects.length} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;return new Blob([pdf],{type:'application/pdf'});
+}
+function downloadEstimate(mode){
+ const status=document.getElementById('pdfStatus');
+ try{
+  if(!lastReport)throw new Error('The estimate is not ready.');
+  const url=URL.createObjectURL(buildBrandedPdf(lastReport,mode)),a=document.createElement('a');
+  a.href=url;a.download=`${lastReport.ref}-${mode}-estimate.pdf`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+  if(status){status.className='pdf-status';status.textContent='Your PDF download has started.'}
+ }catch(error){if(status){status.className='pdf-status error';status.textContent='The PDF could not be created. Please try again.'}}
 }
 
 async function generate(){
@@ -528,12 +618,13 @@ async function generate(){
       <div class="compare-panel" id="comparePanel"><div class="compare-grid"><div class="compare-col"><h4>You selected</h4><ul>${selected.map(x=>`<li>${MODULES[x.id].name}</li>`).join('')}</ul></div><div class="compare-col"><h4>SnapNest thinks you need now</h4><ul>${now.map(x=>`<li>${MODULES[x.id].name}</li>`).join('')}</ul></div></div>
       ${(missing.length||extra.length)?`<div class="soft-warning"><strong>Where we differ:</strong> ${missing.length?`We think ${missing.map(x=>MODULES[x.id].name).join(', ')} may be missing. `:''}${extra.length?`We would not put ${extra.map(x=>MODULES[x.id].name).join(', ')} into the launch estimate yet based on these answers.`:''}</div>`:'<div class="soft-warning"><strong>Good match:</strong> your choices line up closely with the estimate.</div>'}</div></div>`:''}
 
-   <div class="no-print">
-    <div class="result-section"><h3>Print or save an estimate as PDF</h3><p class="muted">Choose the version you want, then use your browser’s Print or Save as PDF option.</p>
-      <div class="download-grid">
-       <button class="btn btn-primary download-option" onclick="printEstimate('recommended')"><strong>Print / Save SnapNest’s recommended estimate</strong><small>Uses the setup SnapNest recommends from the assessment.</small></button>
-       ${selected.length?`<button class="btn download-option" onclick="printEstimate('selected')"><strong>Print / Save an estimate based on my selections</strong><small>Uses the systems exactly as you selected them.</small></button>`:''}
-      </div>
+    <div class="no-print">
+     <div class="result-section"><h3>Download your PDF estimate</h3><p class="muted">Choose the version you want. The PDF downloads directly to your device.</p>
+       <div class="download-grid">
+        <button class="btn btn-primary download-option" type="button" onclick="downloadEstimate('recommended')"><strong>Download SnapNest’s recommended estimate</strong><small>Uses the setup SnapNest recommends from the assessment.</small></button>
+        ${selected.length?`<button class="btn download-option" type="button" onclick="downloadEstimate('selected')"><strong>Download an estimate based on my selections</strong><small>Uses the systems exactly as you selected them.</small></button>`:''}
+       </div>
+       <div aria-live="polite" class="pdf-status" id="pdfStatus"></div>
     </div>
     <div class="actions"><button class="btn" onclick="location.reload()">Test Another Business</button></div>
    </div>
@@ -552,6 +643,7 @@ async function generate(){
   selected_setup_estimate:selectedEst.setup,selected_monthly_estimate:selectedEst.monthly,selected_year_one_estimate:selectedEst.firstYear,
   snapnest_setup_estimate:est.setup,snapnest_monthly_estimate:est.monthly,snapnest_year_one_estimate:est.firstYear
  };
+ lastReport={business:state.business,ref,date:date.display,industry:state.industry,stage:state.stage,staff:state.staff,locations:state.locations,customerFlow:state.customerFlow,now,wait,selected,est,selectedEst};
  setSubmissionStatus(await submitAssessment(lastSubmission));
 }
 state.locations='1';

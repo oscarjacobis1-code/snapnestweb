@@ -249,12 +249,15 @@ test('accessibility: single-choice questions expose radio-group semantics', () =
 });
 
 test('accessibility: dynamic steps explicitly move focus to the new question heading', () => {
-  assert.match(source,/heading\.tabIndex=-1/);assert.match(source,/heading\.focus\(\{preventScroll:true\}\)/);
+  assert.match(source,/id="questionTitle" tabindex="-1"/);
+  assert.match(source,/heading\.focus\(\{preventScroll:true\}\)/);
 });
 
-test('wording: print actions are not described as direct downloads', () => {
-  assert.doesNotMatch(source, />Download an estimate</);
-  assert.doesNotMatch(source, />Download SnapNest/);
+test('wording: PDF actions are accurate direct downloads', () => {
+  assert.match(source, />Download an estimate/);
+  assert.match(source, />Download SnapNest/);
+  assert.match(source, /buildBrandedPdf/);
+  assert.doesNotMatch(source, /window\.print/);
 });
 
 test('wording: live estimates are not labelled demo logic', () => {

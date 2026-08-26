@@ -120,6 +120,11 @@ body{
   background:var(--sn-page)!important;
   padding-bottom:34px!important;
 }
+.page-hero h1{
+  font-size:clamp(2rem,3.2vw,2.8rem)!important;
+  line-height:1.12!important;
+  letter-spacing:-2px!important;
+}
 .section{
   background:var(--sn-page)!important;
   padding-top:10px!important;
@@ -237,9 +242,9 @@ body{
 }
 .question-card h2{
   color:#171717!important;
-  font-size:clamp(2.15rem,3.7vw,3.2rem)!important;
-  line-height:1.04!important;
-  letter-spacing:-.035em!important;
+  font-size:clamp(1.55rem,2.25vw,2rem)!important;
+  line-height:1.18!important;
+  letter-spacing:-.02em!important;
   margin:3px 0 9px!important;
   max-width:860px;
 }
@@ -388,7 +393,7 @@ body{
 }
 @media(max-width:620px){
   .choice-grid{grid-template-columns:1fr!important}
-  .question-card h2{font-size:2.15rem!important}
+  .question-card h2{font-size:1.55rem!important}
   .tool-side > .card{padding:24px 22px!important}
   .question-card{padding:25px 20px!important}
 }
@@ -397,3 +402,5 @@ body{
 .submission-status{margin:0 0 18px;padding:13px 15px;border-radius:12px;font-size:.86rem;line-height:1.5}.submission-status.sending{background:#f3f7fa;color:#314f63}.submission-status.sent{background:#eef8f1;border:1px solid #b9dfc3;color:#176b32}.submission-status.failed{background:#fff5f3;border:1px solid #f0c2bb;color:#8f251c}.retry-submit{display:block;margin-top:10px;padding:8px 12px;min-height:40px}
 .manual-scope{margin-top:14px;padding:14px 16px;border:1px solid #f0c36c;border-radius:12px;background:#fff9ea;color:#654b12}.manual-scope p{margin:5px 0 0;font-size:.8rem;line-height:1.5}
 .choice:focus-visible,.btn:focus-visible,.compare-toggle:focus-visible,.retry-submit:focus-visible{outline:3px solid #123f5f!important;outline-offset:3px}.field input:focus-visible,.field select:focus-visible,.consent-field input:focus-visible{outline:3px solid #123f5f!important;outline-offset:2px}
+.pdf-status{margin-top:12px;min-height:1.35em;color:#176b32;font-size:.82rem;font-weight:650}.pdf-status.error{color:#8f251c}
+@media(max-width:620px){body:has(#tool) .page-hero h1{font-size:clamp(1.8rem,8vw,2.25rem)!important;line-height:1.12;letter-spacing:-1.5px!important}}
