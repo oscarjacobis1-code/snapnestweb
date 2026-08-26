@@ -411,6 +411,38 @@ function overallWhy(now){
  if(state.digital==='website'||state.digital==='systems')reasons.push('we kept the working systems you already have instead of replacing them');
  return reasons.length?capitalize(reasons.join(', '))+'.':'The recommendation is based on the operating pattern you described, not on a generic industry package.';
 }
+function naturalList(values){
+ const items=values.filter(Boolean);if(items.length<2)return items[0]||'';
+ if(items.length===2)return items.join(' and ');
+ return items.slice(0,-1).join(', ')+', and '+items.at(-1);
+}
+function moduleNames(items){return items.map(item=>MODULES[item.id].name)}
+function recommendationExplanation(selected,now,wait){
+ const selectedIds=new Set(selected.map(item=>item.id)),nowIds=new Set(now.map(item=>item.id)),waitById=new Map(wait.map(item=>[item.id,item]));
+ const extra=selected.filter(item=>!nowIds.has(item.id)),missing=now.filter(item=>!selectedIds.has(item.id));
+ if(!selected.length){
+  const recommendation=now.length?`Based on the answers provided, we recommend prioritising ${naturalList(moduleNames(now))} for launch.`:'Based on the answers provided, no paid technology was strongly justified as essential for launch.';
+  const later=wait.length?` ${naturalList(moduleNames(wait))} may become useful later as the business grows or its workflow becomes more complex.`:'';
+  return recommendation+later+' This recommendation is advisory and the assessment may not capture every business-specific requirement.';
+ }
+ if(!extra.length&&!missing.length)return 'Your selections line up closely with what we would recommend based on the way you described the business. The recommendation is advisory, and the assessment may not capture every business-specific requirement.';
+ const parts=[`You selected ${naturalList(moduleNames(selected))}.`];
+ if(now.length)parts.push(`Based on the answers provided, we think ${naturalList(moduleNames(now))} ${now.length===1?'is':'are'} the ${now.length===1?'priority':'priorities'} for launch.`);
+ if(extra.length){
+  const later=extra.map(item=>waitById.get(item.id)).filter(Boolean),extraNames=naturalList(moduleNames(extra));
+  parts.push(`${extraNames} may be better added later rather than included in the initial launch${later.length?' because the current answers do not show enough immediate operational need':''}.`);
+ }
+ if(missing.length){
+  const reasons=missing.map(item=>`${MODULES[item.id].name} because ${shortReason(item).replace(/\.$/,'').replace(/^./,letter=>letter.toLowerCase())}`);
+  parts.push(`We also recommend ${naturalList(reasons)}.`);
+ }
+ parts.push('If a system is important to your launch for reasons this assessment did not capture, you can keep your selections and use your own estimate instead.');
+ return parts.join(' ');
+}
+function resultComparisonCard(title,items,est,recommended=false){
+ const modules=items.length?`<ul class="comparison-modules">${items.map(item=>`<li>${MODULES[item.id].name}</li>`).join('')}</ul>`:'<p class="comparison-empty">No independent systems selected.</p>';
+ return `<section class="comparison-card ${recommended?'recommended':''}"><div class="comparison-card-head"><span>${recommended?'Advisory result':'Your original scope'}</span><h3>${title}</h3></div>${modules}<dl class="comparison-totals"><div><dt>One-time setup</dt><dd>${money(est.setup)}</dd></div><div><dt>Preliminary recurring support</dt><dd>${money(est.monthly)}/month</dd></div><div><dt>Estimated first-year total</dt><dd>${money(est.firstYear)}</dd></div></dl></section>`;
+}
 function problemLabel(v){return ({customers:'getting more customers',missed:'missed enquiries',transactions:'easier bookings or orders',records:'better records',stock:'stock control',staff:'staff / job management',visibility:'management visibility',paperwork:'less paperwork',payments:'easier payments',delivery:'delivery organisation'})[v]||v}
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
@@ -501,7 +533,7 @@ function buildBrandedPdf(report,mode='recommended'){
  function recommendationList(list,later=false){
   if(!list.length){ensure(42);pdfRect(commands,margin,y-34,contentWidth,38,soft,line);pdfText(commands,later?'Nothing important was identified for later at this stage.':'No paid technology was strongly justified from these answers.',margin+12,y-18,8.5,false,muted);y-=48;return}
   list.forEach(item=>{
-   const module=MODULES[item.id],reason=later?futureReason(item):shortReason(item),reasonLines=pdfWrap(reason,350,8);
+   const module=MODULES[item.id],reason=later?futureReason(item):(mode==='selected'?'Included exactly as selected during the assessment.':shortReason(item)),reasonLines=pdfWrap(reason,350,8);
    const h=Math.max(44,28+reasonLines.length*9);ensure(h+6);
    pdfRect(commands,margin,y-h+5,contentWidth,h,soft,line);pdfRect(commands,margin,y-h+5,4,h,later?'0.54 0.62 0.67':orange);
    pdfText(commands,module.name,margin+15,y-14,10.2,true,navyDeep);
@@ -551,47 +583,12 @@ async function generate(){
  const est=estimate(now);
  const selected=[...state.selected].filter(x=>x!=='unsure').map(id=>({id}));
  const selectedEst=estimate(selected);
- const selectedIds=new Set(selected.map(x=>x.id)),nowIds=new Set(now.map(x=>x.id));
- const missing=now.filter(x=>!selectedIds.has(x.id));
- const extra=selected.filter(x=>!nowIds.has(x.id));
  const date=localDateParts();
  const ref=`SN-BR-${date.year}${date.month}${date.day}-${Math.floor(1000+Math.random()*9000)}`;
- const itemRows=(items,waitMode=false)=>items.length?`<div class="simple-list">${items.map(x=>{
-   const m=MODULES[x.id];
-   return `<div class="simple-item"><div><strong>${m.name}</strong><p>${waitMode?futureReason(x):shortReason(x)}</p></div><div class="simple-price">${money(m.setup)}<small>${waitMode?'possible future setup':'one-time setup'}</small></div></div>`;
- }).join('')}</div>`:`<p class="muted">${waitMode?'Nothing important was identified for later at this stage.':'No paid technology was strongly justified from these answers. A manual conversation may be more appropriate.'}</p>`;
-
  const baseDisclaimer=`<div class="note"><strong>Important:</strong> This document is a preliminary technology cost estimate only. It is not a final quotation, contract, lender recommendation, financing approval, or guarantee of final project cost. Final pricing may change after SnapNest confirms the business requirements, scope, integrations, hardware, third-party services and any custom development required.</div>`;
-
- const recommendedPrint=`<div class="print-recommended">
-   <div class="result-section"><h3>Preliminary SnapNest technology recommendation</h3><p class="muted">This estimate is based on the information supplied during the assessment and is intended for planning purposes only.</p>${itemRows(now)}</div>
-   <div class="result-section"><h3>Estimated technology budget</h3>
-    <div class="budget-grid">
-     <div class="budget-box"><span>One-time setup</span><strong>${money(est.setup)}</strong></div>
-     <div class="budget-box"><span>Preliminary hosting, maintenance & support</span><strong>${money(est.monthly)}/month</strong></div>
-     <div class="budget-box"><span>Estimated first year</span><strong>${money(est.firstYear)}</strong></div>
-    </div>
-    ${scopeNotice(est)}
-    <div class="reason-box" style="margin-top:14px"><strong>Why this setup?</strong><br>${esc(overallWhy(now))}</div>
-   </div>
-   ${baseDisclaimer}
- </div>`;
-
- const selectedPrint=selected.length?`<div class="print-selected">
-   <div class="result-section"><h3>Estimate based on customer-selected technology</h3><p class="muted">This estimate reflects the systems selected by the customer and should not be interpreted as SnapNest’s recommended minimum or final project price.</p>
-    <div class="simple-list">${selected.map(x=>{const m=MODULES[x.id];return `<div class="simple-item"><div><strong>${m.name}</strong><p>Included because you selected it during the assessment.</p></div><div class="simple-price">${money(m.setup)}<small>one-time setup</small></div></div>`}).join('')}</div>
-   </div>
-   <div class="result-section"><h3>Estimated technology budget</h3>
-    <div class="budget-grid">
-     <div class="budget-box"><span>One-time setup</span><strong>${money(selectedEst.setup)}</strong></div>
-     <div class="budget-box"><span>Preliminary hosting, maintenance & support</span><strong>${money(selectedEst.monthly)}/month</strong></div>
-     <div class="budget-box"><span>Estimated first year</span><strong>${money(selectedEst.firstYear)}</strong></div>
-    </div>
-    ${scopeNotice(selectedEst)}
-    ${extra.length?`<div class="soft-warning"><strong>Note:</strong> Your selected configuration includes additional systems beyond SnapNest’s current recommendation. They remain included because you selected them.</div>`:''}
-   </div>
-   ${baseDisclaimer}
- </div>`:'';
+ const explanation=recommendationExplanation(selected,now,wait);
+ const comparison=selected.length?`<div class="result-comparison">${resultComparisonCard('Your selections',selected,selectedEst)}${resultComparisonCard('SnapNest recommendation',now,est,true)}</div>`:`<div class="result-comparison single">${resultComparisonCard('SnapNest recommendation',now,est,true)}</div>`;
+ const manualNotice=est.manualScope||selectedEst.manualScope?scopeNotice(est.manualScope?est:selectedEst):'';
 
  document.getElementById('tool').style.display='none';
  const r=document.getElementById('result');r.classList.add('show');
@@ -599,38 +596,22 @@ async function generate(){
    <div class="quote-head"><div><span class="badge-green">SnapNest Business Technology Estimate</span><h2 style="font-family:Fraunces,serif;margin-top:10px">${esc(state.business)}</h2><p class="muted">Prepared by SnapNest Digital Solutions · Preliminary planning estimate</p></div><div><div class="quote-ref">${ref}</div><div class="muted">${date.display}</div></div></div>
    <div id="submissionStatus" class="submission-status sending" role="status" aria-live="polite">Sending your information to SnapNest…</div>
 
-   <div class="print-recommended">
-    <div class="result-section"><h3>What we think you need now</h3><p class="muted">The short list we would actually budget for at this stage.</p>${itemRows(now)}</div>
-    <div class="result-section"><h3>What could be useful to your business in the future</h3><p class="muted">These could be really useful additions as your business grows. You do not need them to launch, but they may make sense later as customer demand, workload or operations become more complex.</p>${itemRows(wait,true)}</div>
-    <div class="result-section"><h3>Your estimated technology budget</h3>
-     <div class="budget-grid">
-      <div class="budget-box"><span>One-time setup</span><strong>${money(est.setup)}</strong></div>
-      <div class="budget-box"><span>Preliminary hosting, maintenance & support</span><strong>${money(est.monthly)}/month</strong></div>
-      <div class="budget-box"><span>Estimated first year</span><strong>${money(est.firstYear)}</strong></div>
-     </div>
-     ${scopeNotice(est)}
-     <div class="reason-box" style="margin-top:14px"><strong>Why this setup?</strong><br>${esc(overallWhy(now))}</div>
-    </div>
-   </div>
-
-   ${selected.length?`<div class="result-section no-print"><h3>Your choices vs our estimate</h3><p class="muted">Kept out of the way unless you want to compare them.</p>
-      <button class="btn compare-toggle" aria-expanded="false" aria-controls="comparePanel" onclick="toggleComparison(this)">Compare with what I selected</button>
-      <div class="compare-panel" id="comparePanel"><div class="compare-grid"><div class="compare-col"><h4>You selected</h4><ul>${selected.map(x=>`<li>${MODULES[x.id].name}</li>`).join('')}</ul></div><div class="compare-col"><h4>SnapNest thinks you need now</h4><ul>${now.map(x=>`<li>${MODULES[x.id].name}</li>`).join('')}</ul></div></div>
-      ${(missing.length||extra.length)?`<div class="soft-warning"><strong>Where we differ:</strong> ${missing.length?`We think ${missing.map(x=>MODULES[x.id].name).join(', ')} may be missing. `:''}${extra.length?`We would not put ${extra.map(x=>MODULES[x.id].name).join(', ')} into the launch estimate yet based on these answers.`:''}</div>`:'<div class="soft-warning"><strong>Good match:</strong> your choices line up closely with the estimate.</div>'}</div></div>`:''}
-
-    <div class="no-print">
-     <div class="result-section"><h3>Download your PDF estimate</h3><p class="muted">Choose the version you want. The PDF downloads directly to your device.</p>
+   <div class="result-experience">
+    <h3 class="result-experience-title">Your assessment result</h3>
+    ${comparison}
+    <div class="recommendation-explanation"><strong>How we reached this recommendation</strong><p>${esc(explanation)}</p></div>
+    <div class="result-downloads no-print"><h3>Download your estimate</h3><p>Choose the version you want. Both estimates remain independent.</p>
        <div class="download-grid">
-        <button class="btn btn-primary download-option" type="button" onclick="downloadEstimate('recommended')"><strong>Download SnapNest’s recommended estimate</strong><small>Uses the setup SnapNest recommends from the assessment.</small></button>
-        ${selected.length?`<button class="btn download-option" type="button" onclick="downloadEstimate('selected')"><strong>Download an estimate based on my selections</strong><small>Uses the systems exactly as you selected them.</small></button>`:''}
+        <button class="btn btn-primary download-option" type="button" onclick="downloadEstimate('recommended')"><strong>Download SnapNest Recommended Estimate</strong><small>Uses the need-now systems identified by the assessment.</small></button>
+        ${selected.length?`<button class="btn download-option" type="button" onclick="downloadEstimate('selected')"><strong>Download My Selected Estimate</strong><small>Uses exactly the systems you selected.</small></button>`:''}
        </div>
        <div aria-live="polite" class="pdf-status" id="pdfStatus"></div>
     </div>
-    <div class="actions"><button class="btn" onclick="location.reload()">Test Another Business</button></div>
+    ${manualNotice}
+    ${baseDisclaimer}
    </div>
-
-   <div style="display:none">${recommendedPrint}${selectedPrint}</div>
- </div></div>`;
+    <div class="actions"><button class="btn" onclick="location.reload()">Test Another Business</button></div>
+  </div></div>`;
  r.scrollIntoView({behavior:'smooth',block:'start'});
  lastSubmission={
   lead_consent:'yes',

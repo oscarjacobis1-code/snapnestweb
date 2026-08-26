@@ -12,10 +12,56 @@ const {
   scenario,
   setFetch,
   submitAssessment,
+  recommendationExplanation,
+  resultComparisonCard,
+  buildBrandedPdf,
   source,
 } = require('./helpers/load-readiness.cjs');
 
 const pricingHtml = fs.readFileSync(path.resolve(__dirname, '..', 'pricing.html'), 'utf8');
+
+const resultRow = (id, positive = ['required by the stated workflow']) => ({ id, positive: positive.map(reason => ({ reason })) });
+
+test('result experience presents selected and recommended scopes side by side without an accordion', () => {
+  assert.match(source, /class="result-comparison"/);
+  assert.match(source, /Download SnapNest Recommended Estimate/);
+  assert.match(source, /Download My Selected Estimate/);
+  assert.doesNotMatch(source, /Compare with what I selected/);
+});
+
+test('result explanation identifies a selected system that is better deferred', () => {
+  const text = recommendationExplanation(
+    [resultRow('website'), resultRow('inventory')],
+    [resultRow('inventory')],
+    [resultRow('website')],
+  );
+  assert.match(text, /Website & Online Presence may be better added later/i);
+  assert.match(text, /keep your selections and use your own estimate/i);
+});
+
+test('result explanation identifies a missing need-now system with evidence', () => {
+  const text = recommendationExplanation(
+    [resultRow('website')],
+    [resultRow('website'), resultRow('inventory', ['stock control is a stated priority'])],
+    [],
+  );
+  assert.match(text, /recommend Inventory/i);
+  assert.match(text, /stock control is a stated priority/i);
+});
+
+test('result explanation gives a concise match message for aligned scopes', () => {
+  const text = recommendationExplanation([resultRow('booking')], [resultRow('booking')], []);
+  assert.match(text, /line up closely/i);
+  assert.match(text, /advisory/i);
+});
+
+test('unsure result explains the recommendation and renders no empty customer card', () => {
+  const text = recommendationExplanation([], [resultRow('pos')], [resultRow('website')]);
+  const card = resultComparisonCard('SnapNest recommendation', [resultRow('pos')], { setup: 1, monthly: 2, firstYear: 25 }, true);
+  assert.match(text, /recommend prioritising POS \/ Counter Sales/i);
+  assert.match(text, /Website & Online Presence may become useful later/i);
+  assert.doesNotMatch(card, /Your original scope/);
+});
 
 test('baseline: a covered booking system rejects a duplicate booking recommendation', () => {
   const result = scenario({
@@ -237,9 +283,9 @@ test('accessibility: validation errors are announced and associated with their c
   assert.match(source, /aria-describedby="err_consent"/);
 });
 
-test('accessibility: comparison disclosure exposes expanded state and controls', () => {
-  assert.match(source, /compare-toggle[^>]+aria-expanded=/);
-  assert.match(source, /compare-toggle[^>]+aria-controls="comparePanel"/);
+test('accessibility: comparison is visible without a disclosure control', () => {
+  assert.match(source, /class="result-comparison/);
+  assert.doesNotMatch(source, /compare-toggle[^>]+aria-expanded=/);
 });
 
 test('accessibility: single-choice questions expose radio-group semantics', () => {
@@ -254,10 +300,30 @@ test('accessibility: dynamic steps explicitly move focus to the new question hea
 });
 
 test('wording: PDF actions are accurate direct downloads', () => {
-  assert.match(source, />Download an estimate/);
-  assert.match(source, />Download SnapNest/);
+  assert.match(source, />Download SnapNest Recommended Estimate/);
+  assert.match(source, />Download My Selected Estimate/);
   assert.match(source, /buildBrandedPdf/);
   assert.doesNotMatch(source, /window\.print/);
+});
+
+test('PDF: customer-selected rows do not require recommendation evidence', () => {
+  assert.match(source, /mode==='selected'\?'Included exactly as selected during the assessment\.'/);
+});
+
+test('PDF: recommended and customer-selected reports both generate valid PDF blobs', async () => {
+  const now = [resultRow('inventory', ['stock control is essential'])];
+  const selected = [resultRow('website')];
+  const report = {
+    business: 'Regression Test', ref: 'SN-TEST-1', date: '25/08/2026',
+    industry: 'retail', stage: 'launch', staff: '2-5', locations: '1', customerFlow: 'counter',
+    now, wait: [], selected, est: estimate(now), selectedEst: estimate(selected),
+  };
+  for (const mode of ['recommended', 'selected']) {
+    const pdf = buildBrandedPdf(report, mode);
+    assert.equal(pdf.type, 'application/pdf');
+    assert.ok(pdf.size > 1000);
+    assert.equal((await pdf.slice(0, 5).text()), '%PDF-');
+  }
 });
 
 test('wording: live estimates are not labelled demo logic', () => {

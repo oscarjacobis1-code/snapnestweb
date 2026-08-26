@@ -7,13 +7,15 @@ let source = fs.readFileSync(readinessPath, 'utf8');
 source = source.replace(/state\.locations='1';\s*rebuildFlow\(\);render\(\);\s*$/, '');
 source += `\n;globalThis.__readinessTestApi={
   MODULES,state,rebuildFlow,branchPriority,chooseBranches,capabilityEvidence,
-  scoreRows,recurringSupport,requiresManualScope,estimate,submitAssessment
+  scoreRows,recurringSupport,requiresManualScope,estimate,submitAssessment,
+  recommendationExplanation,resultComparisonCard,buildBrandedPdf
 };`;
 
 let fetchImpl = async () => ({ ok: true, status: 200 });
 const context = {
   console,
   URLSearchParams,
+  Blob,
   location: { protocol: 'https:', hostname: 'snapnestsolutions.com' },
   fetch: (...args) => fetchImpl(...args),
   setTimeout: () => 0,
