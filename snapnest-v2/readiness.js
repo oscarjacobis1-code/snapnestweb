@@ -14,8 +14,19 @@ const MODULES={
  ai:{name:'AI Customer Assistant',setup:35000}
 };
 
+const DOCUMENTS=[
+ {id:'business_plan',name:'Business idea or plan',group:'Official preparation currently announced'},
+ {id:'valid_id',name:'Valid ID',group:'Official preparation currently announced'},
+ {id:'registration',name:'Business registration',group:'Official preparation currently announced'},
+ {id:'gra',name:'GRA / TIN documentation',group:'Official preparation currently announced'},
+ {id:'nis',name:'NIS compliance / documentation',group:'Official preparation currently announced'},
+ {id:'budget',name:'Startup or expansion budget',group:'Helpful preparation'},
+ {id:'supplier_quotes',name:'Supplier quotations / equipment & technology list',group:'Helpful preparation'}
+];
+const DOCUMENT_STATUSES=[['ready','Ready'],['need','Need it'],['help','Need help']];
+
 const state={
- industry:'',stage:'',activities:new Set(),customerFlow:'',problems:new Set(),
+ industry:'',stage:'',documents:{},activities:new Set(),customerFlow:'',problems:new Set(),
  digital:'',staff:'',locations:'',selected:new Set(),branchAnswers:{},
  name:'',business:'',phone:'',email:''
 };
@@ -31,6 +42,7 @@ const BASE=[
  {id:'stage',title:'Where is the business right now?',sub:'This helps us prioritise what is urgent now and what can reasonably wait. It does not change module prices.',choices:[
   ['planning','Planning / business plan'],['financing','Preparing a financing application'],['launch','Ready to launch'],['operating','Already operating']
  ]},
+ {id:'documents',custom:'documents',title:'What do you already have ready?',sub:'Choose the status that best fits each item. This is only a preparation checklist — you do not upload personal documents to SnapNest.'},
  {id:'activities',multi:true,title:'What does the business actually do?',sub:'Choose the real activities. Selecting an activity only opens a possibility — it does not automatically add software.',choices:[
   ['appointments','Take appointments / reservations'],['sell_products','Sell physical products'],['walkin','Serve walk-in / counter customers'],
   ['orders','Take orders'],['quotes','Send quotations / invoices'],['delivery','Deliver goods or services'],
@@ -103,7 +115,7 @@ function rebuildFlow(){
  const branches=chooseBranches();
  const active=new Set(branches);
  Object.keys(state.branchAnswers).forEach(id=>{if(!active.has(id))delete state.branchAnswers[id]});
- flow=[...BASE.slice(0,7),...branches.map(id=>({id:'branch:'+id,branch:id,...BRANCHES[id]})),BASE[7],{id:'contact',contact:true,title:'Where should we send this estimate?',sub:'Your assessment answers and contact details are sent to SnapNest only after you confirm below, so we can follow up about your estimate.'}];
+ flow=[...BASE.slice(0,8),...branches.map(id=>({id:'branch:'+id,branch:id,...BRANCHES[id]})),BASE[8],{id:'contact',contact:true,title:'Where should we send this estimate?',sub:'Your assessment answers and contact details are sent to SnapNest only after you confirm below, so we can follow up about your estimate.'}];
 }
 function branchPriority(){
  const scores={stock:0,appointments:0,quotes:0,delivery:0,rentals:0,staff:0,payments:0};
@@ -139,7 +151,11 @@ function render(){
  document.getElementById('bar').style.width=pct+'%';
  document.getElementById('stepText').textContent=`Step ${index+1} of up to ${flow.length}`;
  let h=`<div class="q-top"><div class="q-step">Question ${index+1} of up to ${flow.length}</div><div aria-hidden="true" class="q-progress"><span style="width:${pct}%"></span></div></div><h2 id="questionTitle" tabindex="-1">${s.title}</h2><p class="muted" id="questionHelp">${s.sub}</p>`;
- if(s.custom==='scale'){
+ if(s.custom==='documents'){
+  let currentGroup='';h+='<div class="document-checklist">';
+  DOCUMENTS.forEach(doc=>{if(doc.group!==currentGroup){currentGroup=doc.group;h+=`<div class="document-group-label">${esc(currentGroup)}</div>`}const selected=state.documents[doc.id]||'';h+=`<div class="document-item"><div class="document-item-name">${esc(doc.name)}</div><div class="document-status-options" role="radiogroup" aria-label="${esc(doc.name)}">${DOCUMENT_STATUSES.map(([value,label])=>`<button type="button" class="doc-status-btn ${selected===value?'selected':''}" role="radio" aria-checked="${selected===value}" onclick="setDocumentStatus('${doc.id}','${value}')">${label}</button>`).join('')}</div></div>`});
+  h+='</div><div class="document-privacy-note"><strong>Privacy:</strong> We only record your preparation status. Do not upload or send IDs, certificates, tax records or NIS documents through this assessment.</div>';
+ } else if(s.custom==='scale'){
   h+=`<div class="choice-grid">${[['1','Owner only'],['2-5','2–5 people'],['6-15','6–15 people'],['16+','16+ people']].map(([v,l])=>`<button type="button" class="choice ${state.staff===v?'selected':''}" aria-pressed="${state.staff===v}" onclick="pickScale('${v}')">${l}</button>`).join('')}</div>
       <div class="field"><label for="locations">Locations / operating sites</label><select id="locations" onchange="state.locations=this.value"><option value="1" ${state.locations==='1'?'selected':''}>1 location / site</option><option value="2-3" ${state.locations==='2-3'?'selected':''}>2–3 locations / sites</option><option value="4+" ${state.locations==='4+'?'selected':''}>4+ locations / sites</option></select></div>`;
  } else if(s.choices){
@@ -159,6 +175,7 @@ function render(){
  box.innerHTML=h;
  const heading=box.querySelector('h2');if(heading)heading.focus({preventScroll:true})
 }
+function setDocumentStatus(id,value){state.documents[id]=value;render()}
 function moveRadio(event){
  if(!['ArrowDown','ArrowRight','ArrowUp','ArrowLeft'].includes(event.key))return;
  const radios=[...event.currentTarget.querySelectorAll('[role="radio"]')];if(!radios.length)return;
@@ -199,7 +216,10 @@ function next(auto=false){
   if(errs.length){errs.forEach(([id,m])=>{document.getElementById('field_'+id)?.classList.add('has-error');document.getElementById('err_'+id).textContent=m});document.getElementById('r_'+errs[0][0])?.focus();return}
   generate();return;
  }
- if(s.custom==='scale'){
+ if(s.custom==='documents'){
+  const unanswered=DOCUMENTS.filter(doc=>!state.documents[doc.id]);
+  if(unanswered.length){if(auto)return;alert('Choose a status for each preparation item before continuing.');return}
+ }else if(s.custom==='scale'){
   if(!state.staff){if(auto)return;alert('Choose the size of the operation.');return}
   state.locations=document.getElementById('locations')?.value||state.locations||'1';
  }else if(s.multi){
@@ -264,6 +284,7 @@ function capabilityEvidence(){
 
  // existing setup is negative evidence
  if(state.digital==='none'){add(E,'website',2,'There is no reliable digital foundation yet')}
+ if((state.stage==='launch'||state.stage==='financing')&&state.digital==='none'&&P.has('customers'))add(E,'website',4,'A customer-facing digital foundation is important at launch when getting customers is a priority');
  if(state.digital==='social'){add(E,'website',1,'The business mainly depends on social media or WhatsApp')}
  if(state.digital==='website')add(E,'website',-8,'A working website already exists');
  if(state.digital==='systems'){add(E,'website',-8,'Existing website already works');add(E,'crm',-3,'Existing business systems may already cover customer records')}
@@ -443,6 +464,17 @@ function resultComparisonCard(title,items,est,recommended=false){
  const modules=items.length?`<ul class="comparison-modules">${items.map(item=>`<li>${MODULES[item.id].name}</li>`).join('')}</ul>`:'<p class="comparison-empty">No independent systems selected.</p>';
  return `<section class="comparison-card ${recommended?'recommended':''}"><div class="comparison-card-head"><span>${recommended?'Advisory result':'Your original scope'}</span><h3>${title}</h3></div>${modules}<dl class="comparison-totals"><div><dt>One-time setup</dt><dd>${money(est.setup)}</dd></div><div><dt>Preliminary recurring support</dt><dd>${money(est.monthly)}/month</dd></div><div><dt>Estimated first-year total</dt><dd>${money(est.firstYear)}</dd></div></dl></section>`;
 }
+function documentStatusLabel(status){return ({ready:'Ready',need:'Need it',help:'Need help'})[status]||'Not answered'}
+function documentHelpItems(){return DOCUMENTS.filter(doc=>state.documents[doc.id]==='help')}
+function documentReadinessHtml(){
+ const ready=DOCUMENTS.filter(doc=>state.documents[doc.id]==='ready').length;
+ const need=DOCUMENTS.filter(doc=>state.documents[doc.id]==='need');
+ const help=documentHelpItems();
+ const rows=DOCUMENTS.map(doc=>{const status=state.documents[doc.id]||'',className=status==='ready'?'ready':status==='help'?'help':'needed';return `<div class="document-result-row"><span>${esc(doc.name)}</span><strong class="${className}">${documentStatusLabel(status)}</strong></div>`}).join('');
+ const summary=help.length?`You asked for help with ${naturalList(help.map(doc=>doc.name))}.`:need.length?`You still need ${need.length} preparation item${need.length===1?'':'s'}.`:'Your preparation checklist is marked ready.';
+ const consultantHelp=help.length?`<div class="document-help-card"><strong>Consultant help requested</strong><p>Because you marked ${help.length===1?'an item':'items'} “Need help”, SnapNest can connect you with an independent Business Documentation &amp; Compliance Consultant. No personal documents are collected by this assessment.</p></div>`:'';
+ return `<section class="document-readiness-result"><div class="document-result-head"><div><span class="result-kicker">Preparation checklist</span><h3>Document readiness</h3></div><strong>${ready} of ${DOCUMENTS.length} ready</strong></div><div class="document-result-list">${rows}</div><p class="document-result-summary">${esc(summary)}</p>${consultantHelp}<p class="document-source-note">Official requirements may change when the Guyana Development Bank publishes its final application process. Helpful preparation items are planning aids, not confirmed mandatory application documents.</p></section>`;
+}
 function problemLabel(v){return ({customers:'getting more customers',missed:'missed enquiries',transactions:'easier bookings or orders',records:'better records',stock:'stock control',staff:'staff / job management',visibility:'management visibility',paperwork:'less paperwork',payments:'easier payments',delivery:'delivery organisation'})[v]||v}
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
@@ -600,6 +632,7 @@ async function generate(){
     <h3 class="result-experience-title">Your assessment result</h3>
     ${comparison}
     <div class="recommendation-explanation"><strong>How we reached this recommendation</strong><p>${esc(explanation)}</p></div>
+    ${documentReadinessHtml()}
     <div class="result-downloads no-print"><h3>Download your estimate</h3><p>Choose the version you want. Both estimates remain independent.</p>
        <div class="download-grid">
         <button class="btn btn-primary download-option" type="button" onclick="downloadEstimate('recommended')"><strong>Download SnapNest Recommended Estimate</strong><small>Uses the need-now systems identified by the assessment.</small></button>
@@ -616,7 +649,7 @@ async function generate(){
  lastSubmission={
   lead_consent:'yes',
   reference:ref,name:state.name,business_name:state.business,whatsapp:state.phone,email:state.email,
-  business_type:state.industry,stage:state.stage,activities:[...state.activities].join(', '),
+  business_type:state.industry,stage:state.stage,document_statuses:JSON.stringify(state.documents),document_help_requested:documentHelpItems().map(doc=>doc.id).join(', '),activities:[...state.activities].join(', '),
   customer_flow:state.customerFlow,biggest_problems:[...state.problems].join(', '),digital_setup:state.digital,
   staff:state.staff,locations:state.locations,conditional_answers:JSON.stringify(state.branchAnswers),
   customer_selected_modules:[...state.selected].filter(x=>x!=='unsure').join(', '),

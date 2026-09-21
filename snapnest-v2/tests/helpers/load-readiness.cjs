@@ -6,9 +6,9 @@ const readinessPath = path.resolve(__dirname, '..', '..', 'readiness.js');
 let source = fs.readFileSync(readinessPath, 'utf8');
 source = source.replace(/state\.locations='1';\s*rebuildFlow\(\);render\(\);\s*$/, '');
 source += `\n;globalThis.__readinessTestApi={
-  MODULES,state,rebuildFlow,branchPriority,chooseBranches,capabilityEvidence,
+  MODULES,DOCUMENTS,BASE,state,rebuildFlow,branchPriority,chooseBranches,capabilityEvidence,
   scoreRows,recurringSupport,requiresManualScope,estimate,submitAssessment,
-  recommendationExplanation,resultComparisonCard,buildBrandedPdf
+  recommendationExplanation,resultComparisonCard,documentHelpItems,documentReadinessHtml,buildBrandedPdf
 };`;
 
 let fetchImpl = async () => ({ ok: true, status: 200 });
@@ -34,6 +34,7 @@ function resetState(overrides = {}) {
     digital: '',
     staff: '1',
     locations: '1',
+    documents: {},
     branchAnswers: {},
     name: '',
     business: '',

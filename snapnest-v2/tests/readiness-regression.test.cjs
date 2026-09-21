@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   MODULES,
+  DOCUMENTS,
+  BASE,
   state,
   rebuildFlow,
   scoreRows,
@@ -14,11 +16,15 @@ const {
   submitAssessment,
   recommendationExplanation,
   resultComparisonCard,
+  documentHelpItems,
+  documentReadinessHtml,
   buildBrandedPdf,
   source,
 } = require('./helpers/load-readiness.cjs');
 
 const pricingHtml = fs.readFileSync(path.resolve(__dirname, '..', 'pricing.html'), 'utf8');
+const readinessHtml = fs.readFileSync(path.resolve(__dirname, '..', 'business-readiness.html'), 'utf8');
+const readinessCss = fs.readFileSync(path.resolve(__dirname, '..', 'readiness.css'), 'utf8');
 
 const resultRow = (id, positive = ['required by the stated workflow']) => ({ id, positive: positive.map(reason => ({ reason })) });
 
@@ -194,6 +200,55 @@ test('recommendation: accumulated independent evidence can make Website need-now
 test('recommendation: an existing suitable Website suppresses a duplicate recommendation', () => {
   const result=scenario({industry:'other',stage:'operating',activities:['online'],customerFlow:'mixed',problems:['customers'],digital:'website',staff:'1',locations:'1'});
   assert.equal(result.now.some(row=>row.id==='website'),false);
+});
+
+test('Daniel lead: website is need-now while invoicing waits and unsupported systems are excluded', () => {
+  const result=scenario({
+    industry:'contractor',stage:'launch',activities:['delivery'],customerFlow:'quotes',
+    problems:['customers'],digital:'none',staff:'1',locations:'1',
+    branchAnswers:{quotes:'rare',delivery:'rare'},selected:['website','pos','invoicing','automation'],
+  });
+  assert.equal(result.now.map(row=>row.id).join(','),'website');
+  assert.equal(result.wait.some(row=>row.id==='invoicing'),true);
+  assert.equal(result.now.some(row=>['pos','automation','delivery'].includes(row.id)),false);
+  assert.equal(result.estimate.setup,55000);
+  assert.equal(result.estimate.monthly,10000);
+  assert.equal(result.estimate.firstYear,175000);
+  assert.equal(result.estimate.recurringBand,'low');
+  assert.equal(result.estimate.manualScope,false);
+});
+
+test('document readiness is Question 3 with three exact states and no uploads', () => {
+  resetState();rebuildFlow();
+  assert.equal(DOCUMENTS.length,7);
+  assert.equal(state.documents && typeof state.documents,'object');
+  assert.equal(BASE[2].id,'documents');
+  assert.equal(BASE[2].custom,'documents');
+  for(const label of ['Ready','Need it','Need help'])assert.match(source,new RegExp(`\\['[^']+','${label}'\\]`));
+  assert.match(source,/do not upload personal documents/i);
+  assert.doesNotMatch(source,/type=["']file["']/i);
+});
+
+test('document help triggers consultant structure only for Need help choices', () => {
+  resetState({documents:Object.fromEntries(DOCUMENTS.map(doc=>[doc.id,'ready']))});
+  assert.equal(documentHelpItems().length,0);
+  assert.doesNotMatch(documentReadinessHtml(),/Consultant help requested/);
+  state.documents.gra='help';
+  assert.equal(documentHelpItems().map(doc=>doc.id).join(','),'gra');
+  assert.match(documentReadinessHtml(),/Consultant help requested/);
+  assert.match(documentReadinessHtml(),/GRA \/ TIN documentation/);
+});
+
+test('Netlify form captures document statuses and consultant-help requests', () => {
+  assert.match(readinessHtml,/name="document_statuses"/);
+  assert.match(readinessHtml,/name="document_help_requested"/);
+  assert.match(source,/document_statuses:JSON\.stringify\(state\.documents\)/);
+  assert.match(source,/document_help_requested:documentHelpItems\(\)/);
+});
+
+test('mobile document checklist uses full-width one-column controls', () => {
+  assert.match(readinessCss,/@media\(max-width:700px\)\{\.document-status-options,\.document-result-list\{grid-template-columns:1fr\}/);
+  assert.match(readinessCss,/\.doc-status-btn\{width:100%;min-height:48px;text-align:left\}/);
 });
 
 test('submission: a 2xx response returns a visible-success result contract', async () => {
