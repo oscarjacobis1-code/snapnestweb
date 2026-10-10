@@ -5,7 +5,7 @@ This suite protects the repaired Business Readiness contracts. It uses Node's bu
 Run from the repository root:
 
 ```powershell
-node --test snapnest-v2/tests/readiness-regression.test.cjs
+node --test snapnest-v2/tests/*.test.cjs
 ```
 
 ## Coverage
@@ -48,3 +48,17 @@ node --test snapnest-v2/tests/readiness-regression.test.cjs
 ## Acceptance policy
 
 All approved contracts must pass. A TODO is permitted only for a genuinely unapproved commercial or interface contract.
+
+## Site integrity coverage
+
+The static-health suite checks all public HTML pages for local links/assets, duplicate IDs, image alt attributes and valid JSON-LD. It also verifies Netlify form honeypots, lifecycle lead fields, script ordering, and mobile-menu keyboard behavior. These tests do not submit forms or contact production services.
+
+Run JavaScript syntax checks separately:
+
+```sh
+node --check snapnest-v2/site.js
+node --check snapnest-v2/readiness.js
+node --check snapnest-v2/readiness-lifecycle.js
+```
+
+Note: the repository currently has no automated CI workflow or required branch checks; run these commands before merging site changes.
