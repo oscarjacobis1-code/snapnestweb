@@ -1,0 +1,27 @@
+name: SnapNest integrity checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check snapnest-v2/site.js
+          node --check snapnest-v2/readiness.js
+          node --check snapnest-v2/readiness-document-help.js
+          node --check snapnest-v2/readiness-lifecycle.js
+      - name: Run Business Readiness and static health regressions
+        run: node --test snapnest-v2/tests/*.test.cjs
